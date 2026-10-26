@@ -632,20 +632,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                     _buildAddressSection(),
                     const SizedBox(height: 16),
                     
-                    // Number & Dates
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _invoiceNumberController,
-                            decoration: _inputDecor('Invoice Number').copyWith(
-                              prefixText: _invoicePrefix,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    // Dates
                     Row(
                       children: [
                         Expanded(
@@ -672,68 +659,81 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    CheckboxListTile(
-                      title: const Text('Prevent sending overdue reminders for this invoice'),
-                      value: _cancelOverdueReminders,
-                      onChanged: (val) {
-                        setState(() {
-                          _cancelOverdueReminders = val ?? false;
-                        });
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(),
-                    const Text('Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-                    const SizedBox(height: 16),
-                    
-                    InkWell(
-                      onTap: _showPaymentModesDialog,
-                      child: InputDecorator(
-                        decoration: _inputDecor('Allowed payment modes for this invoice'),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedPaymentModes.isEmpty
-                                    ? 'Nothing selected'
-                                    : _paymentModes
-                                        .where((pm) => _selectedPaymentModes.contains(pm['id'].toString()))
-                                        .map((pm) => pm['name'])
-                                        .join(', '),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                          ],
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 16),
 
-                    // Currency & Sale Agent
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Currency'),
-                            isExpanded: true,
-                            value: _selectedCurrency,
-                            items: _currencies.map<DropdownMenuItem<String>>((c) {
-                              return DropdownMenuItem<String>(
-                                value: c['id'].toString(),
-                                child: Text(c['name']),
-                              );
-                            }).toList(),
-                            onChanged: (val) => setState(() => _selectedCurrency = val),
-                          ),
+                    // Currency is needed up front since item rates below are
+                    // shown/entered in this currency; everything else that's
+                    // optional or rarely changed lives in "More Options" so the
+                    // common case (pick customer, add items, save) stays short.
+                    DropdownButtonFormField<String>(
+                      decoration: _inputDecor('Currency'),
+                      isExpanded: true,
+                      value: _selectedCurrency,
+                      items: _currencies.map<DropdownMenuItem<String>>((c) {
+                        return DropdownMenuItem<String>(
+                          value: c['id'].toString(),
+                          child: Text(c['name']),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedCurrency = val),
+                    ),
+                    const SizedBox(height: 4),
+
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.only(bottom: 8),
+                        title: const Text('More Options', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text(
+                          'Invoice number, sale agent, recurring, discount type, notes...',
+                          style: TextStyle(fontSize: 12),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
+                        children: [
+                          TextFormField(
+                            controller: _invoiceNumberController,
+                            decoration: _inputDecor('Invoice Number').copyWith(
+                              prefixText: _invoicePrefix,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          CheckboxListTile(
+                            title: const Text('Prevent sending overdue reminders for this invoice'),
+                            value: _cancelOverdueReminders,
+                            onChanged: (val) {
+                              setState(() {
+                                _cancelOverdueReminders = val ?? false;
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: _showPaymentModesDialog,
+                            child: InputDecorator(
+                              decoration: _inputDecor('Allowed payment modes for this invoice'),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _selectedPaymentModes.isEmpty
+                                          ? 'Nothing selected'
+                                          : _paymentModes
+                                              .where((pm) => _selectedPaymentModes.contains(pm['id'].toString()))
+                                              .map((pm) => pm['name'])
+                                              .join(', '),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
                             decoration: _inputDecor('Sale Agent'),
                             isExpanded: true,
                             value: _selectedSaleAgent,
@@ -745,14 +745,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             }).toList(),
                             onChanged: (val) => setState(() => _selectedSaleAgent = val),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
                             decoration: _inputDecor('Recurring Invoice?'),
                             isExpanded: true,
                             value: _recurring,
@@ -764,10 +758,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             ],
                             onChanged: (val) => setState(() => _recurring = val ?? '0'),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
                             decoration: _inputDecor('Discount Type'),
                             isExpanded: true,
                             value: _selectedDiscountType,
@@ -778,50 +770,62 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             ],
                             onChanged: (val) => setState(() => _selectedDiscountType = val),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (_recurring != '0') ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _cyclesController,
-                              keyboardType: TextInputType.number,
-                              readOnly: _infinityCycles,
-                              decoration: _inputDecor('Total Cycles'),
+                          const SizedBox(height: 16),
+                          if (_recurring != '0') ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _cyclesController,
+                                    keyboardType: TextInputType.number,
+                                    readOnly: _infinityCycles,
+                                    decoration: _inputDecor('Total Cycles'),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      value: _infinityCycles,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _infinityCycles = val ?? true;
+                                          if (_infinityCycles) {
+                                            _cyclesController.text = '0';
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    const Text('Infinity'),
+                                  ],
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 16),
+                          ],
+                          TextFormField(
+                            controller: _adminNoteController,
+                            decoration: _inputDecor('Admin Note'),
+                            maxLines: 2,
                           ),
-                          const SizedBox(width: 16),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Checkbox(
-                                value: _infinityCycles,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _infinityCycles = val ?? true;
-                                    if (_infinityCycles) {
-                                      _cyclesController.text = '0';
-                                    }
-                                  });
-                                },
-                              ),
-                              const Text('Infinity'),
-                            ],
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _clientNoteController,
+                            decoration: _inputDecor('Client Note'),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _termsController,
+                            decoration: _inputDecor('Terms & Conditions'),
+                            maxLines: 2,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    TextFormField(
-                      controller: _adminNoteController,
-                      decoration: _inputDecor('Admin Note'),
-                      maxLines: 2,
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
                     const Divider(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1149,18 +1153,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _clientNoteController,
-                      decoration: _inputDecor('Client Note'),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _termsController,
-                      decoration: _inputDecor('Terms & Conditions'),
-                      maxLines: 2,
-                    ),
                     const SizedBox(height: 80),
                   ],
                 ),
