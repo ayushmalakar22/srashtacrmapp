@@ -196,6 +196,11 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
                     children: [
                       const Text('Bill To', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(height: 8),
+                      if ((_invoice!['company'] ?? '').toString().isNotEmpty)
+                        Text(
+                          _invoice!['company'].toString(),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       Text('${_invoice!['billing_street'] ?? ''}\n${_invoice!['billing_city'] ?? ''} ${_invoice!['billing_zip'] ?? ''}\n${_invoice!['billing_state'] ?? ''}'),
                     ],
                   ),
