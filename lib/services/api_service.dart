@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,10 +6,13 @@ class ApiService {
   // Override per run: flutter run --dart-define=API_BASE_URL=http://<lan-ip>:8080/mobile_api
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
-  // Your Mac's current LAN IP. Both the phone and this Mac must be on the
-  // same Wi-Fi network for a physical device to reach this. If the Mac's
-  // IP changes (new Wi-Fi, reboot, etc.), update this or use --dart-define.
-  static const String _lanIp = '192.168.0.178';
+  // Mac's Bonjour/mDNS hostname instead of a raw LAN IP, so the app keeps
+  // working even if the Mac's IP changes (new Wi-Fi, router restart, etc.).
+  // Find it with `scutil --get LocalHostName` on the Mac. Only resolves on
+  // the same local network, and a few Android ROMs don't support mDNS
+  // hostname resolution - if the app can't connect, fall back to the LAN
+  // IP via --dart-define=API_BASE_URL=http://<ip>:8080/mobile_api.
+  static const String _lanHost = 'macmini9s-Mac-mini.local';
 
   // Backend now always runs via Docker (docker compose up, see srashtacrm/
   // DOCKER.md), which publishes the app on port 8080 - not the old 8000
@@ -19,7 +21,7 @@ class ApiService {
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
-    return 'http://$_lanIp:$_dockerPort/mobile_api';
+    return 'http://$_lanHost:$_dockerPort/mobile_api';
   }
 
   static Future<Map<String, String>> _getHeaders() async {
