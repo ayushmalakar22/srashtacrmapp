@@ -524,6 +524,33 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     return totalTax;
   }
 
+  /// Per-tax breakdown (e.g. "CGST (9.00%)" -> amount), summed across all
+  /// items, mirroring the CGST/SGST line items shown on the web admin panel.
+  Map<String, double> get _taxBreakdown {
+    final Map<String, double> breakdown = {};
+    for (var item in _invoiceItems) {
+      final qty = (item['qty'] as double? ?? 1.0);
+      final rate = (item['rate'] as double? ?? 0.0);
+      final itemSubtotal = qty * rate;
+      final taxes = item['taxname'];
+      if (taxes is List) {
+        for (var tax in taxes) {
+          if (tax is String && tax.contains('|')) {
+            final parts = tax.split('|');
+            if (parts.length >= 2) {
+              final name = parts[0];
+              final ratePercent = double.tryParse(parts[1]) ?? 0.0;
+              final label = '$name (${ratePercent.toStringAsFixed(2)}%)';
+              final amount = (itemSubtotal * ratePercent) / 100.0;
+              breakdown[label] = (breakdown[label] ?? 0) + amount;
+            }
+          }
+        }
+      }
+    }
+    return breakdown;
+  }
+
   double get _discountAmount {
     double discount = double.tryParse(_discountController.text) ?? 0;
     if (discount <= 0) return 0.0;
@@ -1084,6 +1111,18 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    ..._taxBreakdown.entries.map(
+                      (tax) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text('${tax.key}:', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            const SizedBox(width: 189),
+                            SizedBox(width: 80, child: Text('$_currencySymbol${tax.value.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 16))),
+                          ],
+                        ),
+                      ),
+                    ),
                     Row(
                       children: [
                         const Expanded(child: Text('Adjustment:', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),

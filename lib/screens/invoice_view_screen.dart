@@ -260,8 +260,9 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
             _buildTotalRow('Sub Total:', '\$${_invoice!['subtotal'] ?? '0.00'}'),
             if (double.tryParse(_invoice!['discount_total']?.toString() ?? '0') != null && double.parse(_invoice!['discount_total'].toString()) > 0)
               _buildTotalRow('Discount:', '-\$${_invoice!['discount_total']}'),
-            if (double.tryParse(_invoice!['total_tax']?.toString() ?? '0') != null && double.parse(_invoice!['total_tax'].toString()) > 0)
-              _buildTotalRow('Tax:', '\$${_invoice!['total_tax']}'),
+            ..._taxBreakdown(items).entries.map(
+                  (tax) => _buildTotalRow('${tax.key}:', '\$${tax.value.toStringAsFixed(2)}'),
+                ),
             if (double.tryParse(_invoice!['adjustment']?.toString() ?? '0') != null && double.parse(_invoice!['adjustment'].toString()) != 0)
               _buildTotalRow('Adjustment:', '\$${_invoice!['adjustment']}'),
             const SizedBox(height: 8),
@@ -284,6 +285,33 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         ),
       ),
     );
+  }
+
+  /// Per-tax breakdown (e.g. "CGST (9.00%)" -> amount), summed across all
+  /// items, mirroring the CGST/SGST line items shown on the web admin panel.
+  Map<String, double> _taxBreakdown(List items) {
+    final Map<String, double> breakdown = {};
+    for (var item in items) {
+      final qty = double.tryParse(item['qty']?.toString() ?? '1') ?? 1.0;
+      final rate = double.tryParse(item['rate']?.toString() ?? '0') ?? 0.0;
+      final itemSubtotal = qty * rate;
+      final taxes = item['taxname'];
+      if (taxes is List) {
+        for (var tax in taxes) {
+          if (tax is String && tax.contains('|')) {
+            final parts = tax.split('|');
+            if (parts.length >= 2) {
+              final name = parts[0];
+              final ratePercent = double.tryParse(parts[1]) ?? 0.0;
+              final label = '$name (${ratePercent.toStringAsFixed(2)}%)';
+              final amount = (itemSubtotal * ratePercent) / 100.0;
+              breakdown[label] = (breakdown[label] ?? 0) + amount;
+            }
+          }
+        }
+      }
+    }
+    return breakdown;
   }
 
   Widget _buildTotalRow(String label, String value, {bool isBold = false, double fontSize = 14}) {
