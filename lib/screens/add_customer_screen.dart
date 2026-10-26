@@ -64,7 +64,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: widget.customerId != null ? 3 : 2, vsync: this);
+    _tabController = TabController(length: widget.customerId != null ? 2 : 1, vsync: this);
     _tabController!.addListener(() {
       if (!_tabController!.indexIsChanging) {
         setState(() {}); // Rebuild to hide/show bottom nav bar
@@ -198,25 +198,40 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
 
     setState(() => _isSaving = true);
     try {
+      final address = _addressController.text.trim();
+      final city = _cityController.text.trim();
+      final state = _stateController.text.trim();
+      final zip = _zipController.text.trim();
+
+      // If the billing address wasn't filled in under "More Options", default it
+      // to the main address so invoices always have a Bill To address instead
+      // of showing blank (matches the main address unless explicitly overridden).
+      final billingStreet = _billingStreetController.text.trim();
+      final billingCity = _billingCityController.text.trim();
+      final billingState = _billingStateController.text.trim();
+      final billingZip = _billingZipController.text.trim();
+      final billingHasOverride = billingStreet.isNotEmpty || billingCity.isNotEmpty ||
+          billingState.isNotEmpty || billingZip.isNotEmpty || _billingCountry != null;
+
       final data = {
         'company': _companyController.text.trim(),
         'vat': _vatController.text.trim(),
         'phonenumber': _phoneController.text.trim(),
         'website': _websiteController.text.trim(),
-        'address': _addressController.text.trim(),
-        'city': _cityController.text.trim(),
-        'state': _stateController.text.trim(),
-        'zip': _zipController.text.trim(),
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
         'country': _selectedCountry,
         'default_language': _selectedLanguage,
         'default_currency': _selectedCurrency,
         'groups_in': _selectedGroups,
-        // Billing
-        'billing_street': _billingStreetController.text.trim(),
-        'billing_city': _billingCityController.text.trim(),
-        'billing_state': _billingStateController.text.trim(),
-        'billing_zip': _billingZipController.text.trim(),
-        'billing_country': _billingCountry,
+        // Billing (falls back to the main address when left blank)
+        'billing_street': billingHasOverride ? billingStreet : address,
+        'billing_city': billingHasOverride ? billingCity : city,
+        'billing_state': billingHasOverride ? billingState : state,
+        'billing_zip': billingHasOverride ? billingZip : zip,
+        'billing_country': billingHasOverride ? _billingCountry : _selectedCountry,
         // Shipping
         'shipping_street': _shippingStreetController.text.trim(),
         'shipping_city': _shippingCityController.text.trim(),
@@ -410,20 +425,20 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.customerId == null ? 'Add New Customer' : (widget.readOnly ? 'View Customer' : 'Edit Customer')),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: hasAdminsTab,
-          tabs: [
-            const Tab(text: 'Details'),
-            const Tab(text: 'Billing/Shipping'),
-            if (hasAdminsTab) const Tab(text: 'Customer Admins'),
-          ],
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-        ),
+        bottom: hasAdminsTab
+            ? TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Details'),
+                  Tab(text: 'Customer Admins'),
+                ],
+                indicatorColor: Colors.white,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+              )
+            : null,
       ),
-      bottomNavigationBar: widget.readOnly || (_tabController?.index == 2)
+      bottomNavigationBar: widget.readOnly || (hasAdminsTab && _tabController?.index == 1)
           ? const SizedBox.shrink()
           : BottomAppBar(
           child: Padding(
@@ -463,14 +478,15 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildCustomerDetailsTab(),
-                    _buildBillingShippingTab(),
-                    if (hasAdminsTab) _buildAdminsTab(),
-                  ],
-                ),
+                child: hasAdminsTab
+                    ? TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildCustomerDetailsTab(),
+                          _buildAdminsTab(),
+                        ],
+                      )
+                    : _buildCustomerDetailsTab(),
               ),
     );
   }
@@ -488,91 +504,11 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           ),
           const SizedBox(height: 16),
           TextFormField(
-            controller: _vatController,
-            decoration: _inputDecor('VAT Number'),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
             controller: _phoneController,
             keyboardType: TextInputType.text,
             decoration: _inputDecor('Phone'),
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _websiteController,
-            keyboardType: TextInputType.url,
-            decoration: _inputDecor('Website'),
-          ),
-          const SizedBox(height: 16),
-          
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () {
-                    _showMultiSelectDialog('Select Groups', _groups, _selectedGroups, (newSelection) {
-                      setState(() => _selectedGroups = newSelection);
-                    });
-                  },
-                  child: InputDecorator(
-                    decoration: _inputDecor('Groups').copyWith(
-                      suffixIcon: const Icon(Icons.arrow_drop_down),
-                    ),
-                    child: Text(
-                      _selectedGroups.isEmpty 
-                        ? 'Nothing selected' 
-                        : _groups.where((g) => _selectedGroups.contains(g['id'].toString())).map((g) => g['name']).join(', '),
-                      style: TextStyle(color: _selectedGroups.isEmpty ? Colors.grey : Colors.black87),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: _showAddGroupDialog,
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(11), // Adjust to match field height
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          DropdownButtonFormField<String>(
-            decoration: _inputDecor('Currency'),
-            isExpanded: true,
-            value: _selectedCurrency,
-            items: _currencies.map<DropdownMenuItem<String>>((c) {
-              return DropdownMenuItem<String>(
-                value: c['id'].toString(),
-                child: Text('${c['name']} (${c['symbol']})'),
-              );
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedCurrency = val),
-          ),
-          const SizedBox(height: 16),
-
-          DropdownButtonFormField<String>(
-            decoration: _inputDecor('Default Language'),
-            isExpanded: true,
-            value: _selectedLanguage,
-            items: _languages.map<DropdownMenuItem<String>>((l) {
-              return DropdownMenuItem<String>(
-                value: l.toString(),
-                child: Text(l.toString()),
-              );
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedLanguage = val),
-          ),
-          const SizedBox(height: 16),
-
           TextFormField(
             controller: _addressController,
             maxLines: 2,
@@ -615,18 +551,113 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             }).toList(),
             onChanged: (val) => setState(() => _selectedCountry = val),
           ),
+          const SizedBox(height: 16),
+
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('More Options', style: TextStyle(fontWeight: FontWeight.w600)),
+              childrenPadding: const EdgeInsets.only(bottom: 16),
+              children: [
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _vatController,
+                  decoration: _inputDecor('VAT Number'),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _websiteController,
+                  keyboardType: TextInputType.url,
+                  decoration: _inputDecor('Website'),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          _showMultiSelectDialog('Select Groups', _groups, _selectedGroups, (newSelection) {
+                            setState(() => _selectedGroups = newSelection);
+                          });
+                        },
+                        child: InputDecorator(
+                          decoration: _inputDecor('Groups').copyWith(
+                            suffixIcon: const Icon(Icons.arrow_drop_down),
+                          ),
+                          child: Text(
+                            _selectedGroups.isEmpty
+                              ? 'Nothing selected'
+                              : _groups.where((g) => _selectedGroups.contains(g['id'].toString())).map((g) => g['name']).join(', '),
+                            style: TextStyle(color: _selectedGroups.isEmpty ? Colors.grey : Colors.black87),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: _showAddGroupDialog,
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(11), // Adjust to match field height
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                DropdownButtonFormField<String>(
+                  decoration: _inputDecor('Currency'),
+                  isExpanded: true,
+                  value: _selectedCurrency,
+                  items: _currencies.map<DropdownMenuItem<String>>((c) {
+                    return DropdownMenuItem<String>(
+                      value: c['id'].toString(),
+                      child: Text('${c['name']} (${c['symbol']})'),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _selectedCurrency = val),
+                ),
+                const SizedBox(height: 16),
+
+                DropdownButtonFormField<String>(
+                  decoration: _inputDecor('Default Language'),
+                  isExpanded: true,
+                  value: _selectedLanguage,
+                  items: _languages.map<DropdownMenuItem<String>>((l) {
+                    return DropdownMenuItem<String>(
+                      value: l.toString(),
+                      child: Text(l.toString()),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _selectedLanguage = val),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Billing/shipping address is filled in automatically from the address above unless you override it here.',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                _buildBillingShippingFields(),
+              ],
+            ),
+          ),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  Widget _buildBillingShippingTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+  Widget _buildBillingShippingFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           const Text('Billing Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
           const Divider(),
           const SizedBox(height: 8),
@@ -728,9 +759,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             }).toList(),
             onChanged: (val) => setState(() => _shippingCountry = val),
           ),
-          const SizedBox(height: 80),
-        ],
-      ),
+      ],
     );
   }
 
