@@ -112,6 +112,38 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     );
   }
 
+  Widget _buildOrganizationInfo() {
+    final org = _invoice?['organization'] as Map<String, dynamic>?;
+    if (org == null) return const SizedBox.shrink();
+
+    final name = (org['name'] ?? '').toString();
+    final address = (org['address'] ?? '').toString();
+    final city = (org['city'] ?? '').toString();
+    final state = (org['state'] ?? '').toString();
+    final zip = (org['zip'] ?? '').toString();
+    final countryCode = (org['country_code'] ?? '').toString();
+    final phone = (org['phone'] ?? '').toString();
+    final vat = (org['vat'] ?? '').toString();
+
+    if (name.isEmpty && address.isEmpty) return const SizedBox.shrink();
+
+    final cityLine = [city, state].where((s) => s.isNotEmpty).join(', ');
+    final zipCountryLine = [countryCode, zip].where((s) => s.isNotEmpty).join(' ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (name.isNotEmpty)
+          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        if (address.isNotEmpty) Text(address),
+        if (cityLine.isNotEmpty) Text(cityLine),
+        if (zipCountryLine.isNotEmpty) Text(zipCountryLine),
+        if (phone.isNotEmpty) Text('Phone: $phone'),
+        if (vat.isNotEmpty) Text('VAT: $vat'),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -169,6 +201,10 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Organization (your business) info - same as the web invoice header
+            _buildOrganizationInfo(),
+            const SizedBox(height: 24),
+
             // Status and Basic Info
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -185,7 +221,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Addresses
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
