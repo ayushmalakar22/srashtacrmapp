@@ -27,7 +27,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   String? _selectedCustomer;
   String? _selectedCurrency;
   String? _selectedSaleAgent;
-  String? _selectedDiscountType;
+  // Not exposed in the UI (no "Discount Type" selector) - 'before_tax' is
+  // the sensible default if staff types a discount amount in the totals row.
+  String? _selectedDiscountType = 'before_tax';
   List<String> _selectedPaymentModes = [];
   String _recurring = '0'; // 0 = No, 1 = 1 month, etc.
 
@@ -632,199 +634,20 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                     _buildAddressSection(),
                     const SizedBox(height: 16),
                     
-                    // Dates
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _invoiceDateController,
-                            readOnly: true,
-                            decoration: _inputDecor('Invoice Date *').copyWith(
-                              suffixIcon: const Icon(Icons.calendar_today),
-                            ),
-                            onTap: () => _selectDate(_invoiceDateController),
-                            validator: (value) => value!.isEmpty ? 'Required' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _dueDateController,
-                            readOnly: true,
-                            decoration: _inputDecor('Due Date').copyWith(
-                              suffixIcon: const Icon(Icons.calendar_today),
-                            ),
-                            onTap: () => _selectDate(_dueDateController),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Currency is needed up front since item rates below are
-                    // shown/entered in this currency; everything else that's
-                    // optional or rarely changed lives in "More Options" so the
-                    // common case (pick customer, add items, save) stays short.
-                    DropdownButtonFormField<String>(
-                      decoration: _inputDecor('Currency'),
-                      isExpanded: true,
-                      value: _selectedCurrency,
-                      items: _currencies.map<DropdownMenuItem<String>>((c) {
-                        return DropdownMenuItem<String>(
-                          value: c['id'].toString(),
-                          child: Text(c['name']),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedCurrency = val),
-                    ),
-                    const SizedBox(height: 4),
-
-                    Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        childrenPadding: const EdgeInsets.only(bottom: 8),
-                        title: const Text('More Options', style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text(
-                          'Invoice number, sale agent, recurring, discount type, notes...',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        children: [
-                          TextFormField(
-                            controller: _invoiceNumberController,
-                            decoration: _inputDecor('Invoice Number').copyWith(
-                              prefixText: _invoicePrefix,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          CheckboxListTile(
-                            title: const Text('Prevent sending overdue reminders for this invoice'),
-                            value: _cancelOverdueReminders,
-                            onChanged: (val) {
-                              setState(() {
-                                _cancelOverdueReminders = val ?? false;
-                              });
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _showPaymentModesDialog,
-                            child: InputDecorator(
-                              decoration: _inputDecor('Allowed payment modes for this invoice'),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _selectedPaymentModes.isEmpty
-                                          ? 'Nothing selected'
-                                          : _paymentModes
-                                              .where((pm) => _selectedPaymentModes.contains(pm['id'].toString()))
-                                              .map((pm) => pm['name'])
-                                              .join(', '),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Sale Agent'),
-                            isExpanded: true,
-                            value: _selectedSaleAgent,
-                            items: _staff.map<DropdownMenuItem<String>>((s) {
-                              return DropdownMenuItem<String>(
-                                value: s['staffid'].toString(),
-                                child: Text('${s['firstname']} ${s['lastname']}'),
-                              );
-                            }).toList(),
-                            onChanged: (val) => setState(() => _selectedSaleAgent = val),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Recurring Invoice?'),
-                            isExpanded: true,
-                            value: _recurring,
-                            items: [
-                              const DropdownMenuItem(value: '0', child: Text('No')),
-                              for (int i = 1; i <= 12; i++)
-                                DropdownMenuItem(value: i.toString(), child: Text('$i Month(s)')),
-                              const DropdownMenuItem(value: 'custom', child: Text('Custom')),
-                            ],
-                            onChanged: (val) => setState(() => _recurring = val ?? '0'),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Discount Type'),
-                            isExpanded: true,
-                            value: _selectedDiscountType,
-                            items: const [
-                              DropdownMenuItem(value: '', child: Text('No Discount')),
-                              DropdownMenuItem(value: 'before_tax', child: Text('Before Tax')),
-                              DropdownMenuItem(value: 'after_tax', child: Text('After Tax')),
-                            ],
-                            onChanged: (val) => setState(() => _selectedDiscountType = val),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_recurring != '0') ...[
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _cyclesController,
-                                    keyboardType: TextInputType.number,
-                                    readOnly: _infinityCycles,
-                                    decoration: _inputDecor('Total Cycles'),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Checkbox(
-                                      value: _infinityCycles,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          _infinityCycles = val ?? true;
-                                          if (_infinityCycles) {
-                                            _cyclesController.text = '0';
-                                          }
-                                        });
-                                      },
-                                    ),
-                                    const Text('Infinity'),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          TextFormField(
-                            controller: _adminNoteController,
-                            decoration: _inputDecor('Admin Note'),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _clientNoteController,
-                            decoration: _inputDecor('Client Note'),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _termsController,
-                            decoration: _inputDecor('Terms & Conditions'),
-                            maxLines: 2,
-                          ),
-                        ],
+                    // Only the fields staff actually need to enter day-to-day.
+                    // Everything else (invoice number, currency, sale agent,
+                    // recurring, discount type, payment modes, notes) already
+                    // has a sensible default computed above/below and is sent
+                    // to the backend as-is - no need to ask for it here. Those
+                    // can still be changed later from the web admin panel.
+                    TextFormField(
+                      controller: _dueDateController,
+                      readOnly: true,
+                      decoration: _inputDecor('Due Date').copyWith(
+                        suffixIcon: const Icon(Icons.calendar_today),
                       ),
+                      onTap: () => _selectDate(_dueDateController),
                     ),
-
                     const SizedBox(height: 8),
                     const Divider(),
                     Row(
@@ -1376,48 +1199,4 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     );
   }
 
-  void _showPaymentModesDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Allowed Payment Modes'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: _paymentModes.map((pm) {
-                    final id = pm['id'].toString();
-                    return CheckboxListTile(
-                      title: Text(pm['name']),
-                      value: _selectedPaymentModes.contains(id),
-                      onChanged: (val) {
-                        setDialogState(() {
-                          if (val == true) {
-                            _selectedPaymentModes.add(id);
-                          } else {
-                            _selectedPaymentModes.remove(id);
-                          }
-                        });
-                        setState(() {});
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                    );
-                  }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Done'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 }
