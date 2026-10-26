@@ -236,87 +236,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     return flat;
   }
 
-  void _showAddNewItemDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Add New Item'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(decoration: _inputDecor('Description *')),
-                const SizedBox(height: 8),
-                TextFormField(decoration: _inputDecor('Long Description'), maxLines: 2),
-                const SizedBox(height: 8),
-                ..._currencies.map((c) {
-                  final isBase = c['isdefault'] == '1';
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: TextFormField(
-                      decoration: _inputDecor('Rate - ${c['name']}${isBase ? ' (Base Currency)' : ''} *'),
-                      keyboardType: TextInputType.number,
-                    ),
-                  );
-                }).toList(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        decoration: _inputDecor('Tax 1'),
-                        items: _taxes.map((t) => DropdownMenuItem<String>(value: t['id'].toString(), child: Text('${t['name']} (${t['taxrate']}%)'))).toList()..insert(0, const DropdownMenuItem(value: '', child: Text('No Tax'))),
-                        onChanged: (val) {},
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        decoration: _inputDecor('Tax 2'),
-                        items: _taxes.map((t) => DropdownMenuItem<String>(value: t['id'].toString(), child: Text('${t['name']} (${t['taxrate']}%)'))).toList()..insert(0, const DropdownMenuItem(value: '', child: Text('No Tax'))),
-                        onChanged: (val) {},
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextFormField(decoration: _inputDecor('Unit')),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  decoration: _inputDecor('Item Group'),
-                  items: _getUniqueGroups().map((g) {
-                    return DropdownMenuItem<String>(value: g['id'].toString(), child: Text(g['name'].toString()));
-                  }).toList()..insert(0, const DropdownMenuItem(value: '', child: Text('Nothing selected'))),
-                  onChanged: (val) {},
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item saved to inventory (UI only)')));
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  List<Map<String, String>> _getUniqueGroups() {
-    final Map<String, String> groups = {};
-    for (var item in _flatAvailableItems) {
-      if (item['group_id'] != null && item['group_id'].toString() != '0' && item['group_name'] != null) {
-        groups[item['group_id'].toString()] = item['group_name'].toString();
-      }
-    }
-    return groups.entries.map((e) => {'id': e.key, 'name': e.value}).toList();
-  }
-
   void _removeItem(int index) {
     setState(() {
       final item = _invoiceItems[index];
@@ -325,6 +244,210 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       }
       _invoiceItems.removeAt(index);
     });
+  }
+
+  /// Add or edit a single invoice item in a bottom sheet instead of a
+  /// permanently-visible form, so the main screen just shows the item list
+  /// plus one "Add Item" button.
+  void _openAddItemSheet({int? editIndex}) {
+    if (editIndex != null) {
+      final item = _invoiceItems[editIndex];
+      _stagingDescCtrl.text = item['description']?.toString() ?? '';
+      _stagingLongDescCtrl.text = item['long_description']?.toString() ?? '';
+      _stagingQtyCtrl.text = (item['qty'] as double? ?? 1.0).toString();
+      _stagingRateCtrl.text = (item['rate'] as double? ?? 0.0).toString();
+      _stagingUnitCtrl.text = item['unit']?.toString() ?? '';
+      _stagingTaxes
+        ..clear()
+        ..addAll(List<String>.from(item['taxname'] ?? []));
+    } else {
+      _stagingSelectedItemId = null;
+      _stagingDescCtrl.clear();
+      _stagingLongDescCtrl.clear();
+      _stagingQtyCtrl.text = '1';
+      _stagingRateCtrl.text = '0';
+      _stagingUnitCtrl.clear();
+      _stagingTaxes.clear();
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(editIndex == null ? 'Add Item' : 'Edit Item', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    if (_flatAvailableItems.isNotEmpty) ...[
+                      DropdownButtonFormField<String>(
+                        decoration: _inputDecor('Pick from catalog (optional)'),
+                        isExpanded: true,
+                        value: null,
+                        items: _flatAvailableItems.map((item) {
+                          final rateVal = item['rate'] != null ? double.tryParse(item['rate'].toString()) ?? 0.0 : 0.0;
+                          return DropdownMenuItem<String>(
+                            value: item['id'].toString(),
+                            child: Text('(${rateVal.toStringAsFixed(2)}) ${item['description']}', overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val == null) return;
+                          final item = _flatAvailableItems.firstWhere((e) => e['id'].toString() == val);
+                          setSheetState(() {
+                            _stagingSelectedItemId = val;
+                            _stagingDescCtrl.text = item['description']?.toString() ?? '';
+                            _stagingLongDescCtrl.text = item['long_description']?.toString() ?? '';
+                            _stagingRateCtrl.text = _getItemRate(item).toStringAsFixed(2);
+                            _stagingUnitCtrl.text = item['unit']?.toString() ?? '';
+                            _stagingTaxes.clear();
+                            if (item['taxname'] != null && item['taxrate'] != null) {
+                              _stagingTaxes.add('${item['taxname']}|${item['taxrate']}');
+                            }
+                            if (item['taxname_2'] != null && item['taxrate_2'] != null) {
+                              _stagingTaxes.add('${item['taxname_2']}|${item['taxrate_2']}');
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextFormField(controller: _stagingDescCtrl, decoration: _inputDecor('Description')),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _stagingQtyCtrl,
+                            decoration: _inputDecor('Qty'),
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) => setSheetState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _stagingRateCtrl,
+                            decoration: _inputDecor('Rate'),
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) => setSheetState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: sheetContext,
+                          builder: (dialogContext) {
+                            return StatefulBuilder(
+                              builder: (dialogContext, setDialogState) {
+                                return AlertDialog(
+                                  title: const Text('Select Taxes'),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: _taxes.map((t) {
+                                        final taxVal = '${t['name']}|${t['taxrate']}';
+                                        return CheckboxListTile(
+                                          title: Text('${t['name']} (${t['taxrate']}%)'),
+                                          value: _stagingTaxes.contains(taxVal),
+                                          onChanged: (val) {
+                                            setDialogState(() {
+                                              if (val == true) {
+                                                _stagingTaxes.add(taxVal);
+                                              } else {
+                                                _stagingTaxes.remove(taxVal);
+                                              }
+                                            });
+                                            setSheetState(() {});
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dialogContext),
+                                      child: const Text('Done'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                      child: InputDecorator(
+                        decoration: _inputDecor('Tax (optional)'),
+                        child: Text(
+                          _stagingTaxes.isEmpty
+                              ? 'No Tax'
+                              : _stagingTaxes.map((t) => '${t.split('|')[1]}%').join(', '),
+                          style: TextStyle(
+                            color: _stagingTaxes.isEmpty ? Colors.grey.shade700 : Colors.black87,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Amount: $_currencySymbol${((double.tryParse(_stagingQtyCtrl.text) ?? 0.0) * (double.tryParse(_stagingRateCtrl.text) ?? 0.0)).toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (_stagingDescCtrl.text.trim().isEmpty && (double.tryParse(_stagingRateCtrl.text) ?? 0.0) == 0.0) {
+                              return;
+                            }
+                            final newItem = {
+                              'id': editIndex != null ? _invoiceItems[editIndex]['id'] : null,
+                              'description': _stagingDescCtrl.text,
+                              'long_description': _stagingLongDescCtrl.text,
+                              'qty': double.tryParse(_stagingQtyCtrl.text) ?? 1.0,
+                              'rate': double.tryParse(_stagingRateCtrl.text) ?? 0.0,
+                              'unit': _stagingUnitCtrl.text,
+                              'taxname': List<String>.from(_stagingTaxes),
+                            };
+                            setState(() {
+                              if (editIndex != null) {
+                                _invoiceItems[editIndex] = newItem;
+                              } else {
+                                _invoiceItems.add(newItem);
+                              }
+                            });
+                            Navigator.pop(sheetContext);
+                          },
+                          icon: const Icon(Icons.check),
+                          label: Text(editIndex == null ? 'Add to list' : 'Save changes'),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _onCustomerChanged(String? customerId) {
@@ -657,222 +780,12 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 0,
-                      children: [
-                        const Text('Show quantity as:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        Radio<String>(value: '1', groupValue: _showQuantityAs, onChanged: (v) => setState(() => _showQuantityAs = v!), visualDensity: VisualDensity.compact),
-                        const Text('Qty', style: TextStyle(fontSize: 12)),
-                        Radio<String>(value: '2', groupValue: _showQuantityAs, onChanged: (v) => setState(() => _showQuantityAs = v!), visualDensity: VisualDensity.compact),
-                        const Text('Hours', style: TextStyle(fontSize: 12)),
-                        Radio<String>(value: '3', groupValue: _showQuantityAs, onChanged: (v) => setState(() => _showQuantityAs = v!), visualDensity: VisualDensity.compact),
-                        const Text('Qty/Hours', style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    
-                    // Add Item Dropdown, Bill Tasks & Add New Item button
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Add Item'),
-                            isExpanded: true,
-                            value: null,
-                            items: _flatAvailableItems.map((item) {
-                              final rateVal = item['rate'] != null ? double.tryParse(item['rate'].toString()) ?? 0.0 : 0.0;
-                              return DropdownMenuItem<String>(
-                                value: item['id'].toString(),
-                                child: Text('(${rateVal.toStringAsFixed(2)}) ${item['description']}', overflow: TextOverflow.ellipsis),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val == null) return;
-                              final item = _flatAvailableItems.firstWhere((e) => e['id'].toString() == val);
-                              setState(() {
-                                _stagingSelectedItemId = val;
-                                _stagingDescCtrl.text = item['description']?.toString() ?? '';
-                                _stagingLongDescCtrl.text = item['long_description']?.toString() ?? '';
-                                _stagingRateCtrl.text = _getItemRate(item).toStringAsFixed(2);
-                                _stagingUnitCtrl.text = item['unit']?.toString() ?? '';
-                                _stagingTaxes.clear();
-                                if (item['taxname'] != null && item['taxrate'] != null) {
-                                  _stagingTaxes.add('${item['taxname']}|${item['taxrate']}');
-                                }
-                                if (item['taxname_2'] != null && item['taxrate_2'] != null) {
-                                  _stagingTaxes.add('${item['taxname_2']}|${item['taxrate_2']}');
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            decoration: _inputDecor('Bill Tasks'),
-                            isExpanded: true,
-                            value: '',
-                            items: const [DropdownMenuItem(value: '', child: Text('No Tasks'))],
-                            onChanged: null, // Placeholder since API doesn't return tasks yet
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle, color: Colors.blue, size: 30),
-                          onPressed: _showAddNewItemDialog,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Staging Row UI
-                    Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(controller: _stagingDescCtrl, decoration: _inputDecor('Description')),
-                            const SizedBox(height: 8),
-                            TextFormField(controller: _stagingLongDescCtrl, decoration: _inputDecor('Long Description')),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 1,
-                                  child: TextFormField(
-                                    controller: _stagingQtyCtrl, 
-                                    decoration: _inputDecor(_showQuantityAs == '2' ? 'Hours' : (_showQuantityAs == '3' ? 'Qty/Hours' : 'Qty')), 
-                                    keyboardType: TextInputType.number,
-
-                                    onChanged: (v) => setState((){}), // trigger amount update
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 1,
-                                  child: TextFormField(
-                                    controller: _stagingRateCtrl, 
-                                    decoration: _inputDecor('Rate'), 
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (v) => setState((){}), // trigger amount update
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 2,
-                                  child: InkWell(
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) {
-                                          return StatefulBuilder(
-                                            builder: (context, setStateDialog) {
-                                              return AlertDialog(
-                                                title: const Text('Select Taxes'),
-                                                content: SingleChildScrollView(
-                                                  child: Column(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: _taxes.map((t) {
-                                                      final taxVal = '${t['name']}|${t['taxrate']}';
-                                                      return CheckboxListTile(
-                                                        title: Text('${t['name']} (${t['taxrate']}%)'),
-                                                        value: _stagingTaxes.contains(taxVal),
-                                                        onChanged: (val) {
-                                                          setStateDialog(() {
-                                                            if (val == true) {
-                                                              _stagingTaxes.add(taxVal);
-                                                            } else {
-                                                              _stagingTaxes.remove(taxVal);
-                                                            }
-                                                          });
-                                                          setState(() {});
-                                                        },
-                                                      );
-                                                    }).toList(),
-                                                  ),
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context),
-                                                    child: const Text('Done'),
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        },
-                                      );
-                                    },
-                                    child: InputDecorator(
-                                      decoration: _inputDecor('Tax'),
-                                      child: Text(
-                                        _stagingTaxes.isEmpty
-                                            ? 'No Tax'
-                                            : _stagingTaxes.map((t) => '${t.split('|')[1]}%').join(', '),
-                                        style: TextStyle(
-                                          color: _stagingTaxes.isEmpty ? Colors.grey.shade700 : Colors.black87,
-                                          fontSize: 14,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4.0),
-                                  child: Text(
-                                    'Amount: $_currencySymbol${((double.tryParse(_stagingQtyCtrl.text) ?? 0.0) * (double.tryParse(_stagingRateCtrl.text) ?? 0.0)).toStringAsFixed(2)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    if (_stagingDescCtrl.text.trim().isEmpty && (double.tryParse(_stagingRateCtrl.text) ?? 0.0) == 0.0) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _invoiceItems.add({
-                                        'description': _stagingDescCtrl.text,
-                                        'long_description': _stagingLongDescCtrl.text,
-                                        'qty': double.tryParse(_stagingQtyCtrl.text) ?? 1.0,
-                                        'rate': double.tryParse(_stagingRateCtrl.text) ?? 0.0,
-                                        'unit': _stagingUnitCtrl.text,
-                                        'taxname': List<String>.from(_stagingTaxes),
-                                      });
-                                      // Clear staging
-                                      _stagingSelectedItemId = null;
-                                      _stagingDescCtrl.clear();
-                                      _stagingLongDescCtrl.clear();
-                                      _stagingQtyCtrl.text = '1';
-                                      _stagingRateCtrl.text = '0';
-                                      _stagingUnitCtrl.clear();
-                                      _stagingTaxes.clear();
-                                    });
-                                  },
-                                  icon: const Icon(Icons.check),
-                                  label: const Text('Add to list'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                    // Items List - tap a row to edit it
+                    if (_invoiceItems.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text('No items yet. Tap "Add Item" below.', style: TextStyle(color: Colors.grey.shade600)),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    
-                    // Items List
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -885,8 +798,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
+                            onTap: () => _openAddItemSheet(editIndex: index),
                             title: Text(item['description']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${_showQuantityAs == '2' ? 'Hours' : (_showQuantityAs == '3' ? 'Qty/Hours' : 'Qty')}: $qty x $_currencySymbol${rate.toStringAsFixed(2)} = $_currencySymbol${total.toStringAsFixed(2)}'),
+                            subtitle: Text('Qty: $qty x $_currencySymbol${rate.toStringAsFixed(2)} = $_currencySymbol${total.toStringAsFixed(2)}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () => _removeItem(index),
@@ -895,7 +809,14 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         );
                       },
                     ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _openAddItemSheet(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Item'),
+                    ),
 
+                    const SizedBox(height: 16),
                     const Divider(),
                     // Totals
                     Row(
