@@ -149,6 +149,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     : RefreshIndicator(
                         onRefresh: _fetchInvoices,
                         child: ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 88),
                           itemCount: _filteredInvoices.length,
                           separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (context, index) {

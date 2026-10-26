@@ -107,6 +107,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     : RefreshIndicator(
                         onRefresh: _fetchCustomers,
                         child: ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 88),
                           itemCount: _customers.length,
                           separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (context, index) {

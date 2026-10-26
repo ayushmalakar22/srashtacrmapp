@@ -92,6 +92,7 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
           : RefreshIndicator(
               onRefresh: _fetchContacts,
               child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 88),
                 itemCount: _contacts.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
