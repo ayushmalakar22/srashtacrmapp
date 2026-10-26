@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Override per run: flutter run --dart-define=API_BASE_URL=http://<lan-ip>:8000/mobile_api
+  // Override per run: flutter run --dart-define=API_BASE_URL=http://<lan-ip>:8080/mobile_api
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   // Your Mac's current LAN IP. Both the phone and this Mac must be on the
@@ -12,9 +12,14 @@ class ApiService {
   // IP changes (new Wi-Fi, reboot, etc.), update this or use --dart-define.
   static const String _lanIp = '192.168.0.178';
 
+  // Backend now always runs via Docker (docker compose up, see srashtacrm/
+  // DOCKER.md), which publishes the app on port 8080 - not the old 8000
+  // bare-metal "php -S" port.
+  static const String _dockerPort = '8080';
+
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
-    return 'http://$_lanIp:8000/mobile_api';
+    return 'http://$_lanIp:$_dockerPort/mobile_api';
   }
 
   static Future<Map<String, String>> _getHeaders() async {
