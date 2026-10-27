@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/animated_entry.dart';
+import '../widgets/empty_state.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
@@ -88,19 +90,22 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : _contacts.isEmpty 
-          ? const Center(child: Text('No contacts found for this customer.'))
+          ? const EmptyState(icon: Icons.person_outline, message: 'No contacts found for this customer')
           : RefreshIndicator(
               onRefresh: _fetchContacts,
-              child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 88),
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 6, bottom: 88),
                 itemCount: _contacts.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final contact = _contacts[index];
                   final isActive = contact['active'] == '1';
                   
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                  return AnimatedEntry(
+                    index: index,
+                    child: Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -200,6 +205,8 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
                           ],
                         ),
                       ],
+                    ),
+                    ),
                     ),
                   );
                 },

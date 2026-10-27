@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import '../widgets/compact_search_field.dart';
+import '../widgets/form_section.dart';
+import '../widgets/popup_title.dart';
 import '../services/api_service.dart';
+import '../widgets/searchable_select_field.dart';
 import 'add_contact_screen.dart';
 
 class AddCustomerScreen extends StatefulWidget {
@@ -185,12 +189,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
   }
 
   InputDecoration _inputDecor(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-    );
+    return InputDecoration(labelText: label);
   }
 
   Future<void> _saveCustomer(bool createContact) async {
@@ -291,33 +290,58 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
 
   Future<void> _showMultiSelectDialog(String title, List<dynamic> items, List<String> selectedValues, Function(List<String>) onConfirm) async {
     List<String> tempSelected = List.from(selectedValues);
+    String query = '';
     await showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            final q = query.trim().toLowerCase();
+            final visible = items.where((item) => item['name'].toString().toLowerCase().contains(q)).toList();
             return AlertDialog(
-              title: Text(title),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              titlePadding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+              contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              title: PopupTitle(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               content: SizedBox(
                 width: double.maxFinite,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: items.map((item) {
-                    final itemId = item['id'].toString();
-                    return CheckboxListTile(
-                      title: Text(item['name']),
-                      value: tempSelected.contains(itemId),
-                      onChanged: (bool? checked) {
-                        setStateDialog(() {
-                          if (checked == true) {
-                            tempSelected.add(itemId);
-                          } else {
-                            tempSelected.remove(itemId);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CompactSearchField(onChanged: (v) => setStateDialog(() => query = v)),
+                    const SizedBox(height: 4),
+                    Flexible(
+                      child: visible.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Text('No results', style: TextStyle(color: Colors.grey)),
+                            )
+                          : ListView(
+                              shrinkWrap: true,
+                              children: visible.map((item) {
+                                final itemId = item['id'].toString();
+                                return CheckboxListTile(
+                                  dense: true,
+                                  visualDensity: const VisualDensity(vertical: -2),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  title: Text(item['name']),
+                                  value: tempSelected.contains(itemId),
+                                  onChanged: (bool? checked) {
+                                    setStateDialog(() {
+                                      if (checked == true) {
+                                        tempSelected.add(itemId);
+                                      } else {
+                                        tempSelected.remove(itemId);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                    ),
+                  ],
                 ),
               ),
               actions: [
@@ -330,7 +354,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                     onConfirm(tempSelected);
                     Navigator.pop(context);
                   },
-                  child: const Text('Confirm'),
+                  child: Text(tempSelected.isEmpty ? 'Confirm' : 'Confirm (${tempSelected.length})'),
                 ),
               ],
             );
@@ -350,12 +374,11 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              title: const Text('Add New Customer Group'),
+              title: const PopupTitle('Add New Customer Group'),
               content: TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: '* Name',
-                  border: OutlineInputBorder(),
                 ),
                 autofocus: true,
               ),
@@ -444,30 +467,29 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (widget.customerId == null) ...[
-                  OutlinedButton(
-                    onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
-                    child: const Text('Save'),
+                  Expanded(
+                    flex: 1,
+                    child: OutlinedButton(
+                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
+                      child: const Text('Save'),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(true),
+                      child: const Text('Save and create contact'),
                     ),
-                    child: const Text('Save and create contact'),
                   ),
                 ] else ...[
-                  ElevatedButton(
-                    onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
+                      child: const Text('Save'),
                     ),
-                    child: const Text('Save'),
                   ),
                 ],
               ],
@@ -493,33 +515,41 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
 
   Widget _buildCustomerDetailsTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          FormSection(
+            index: 0,
+            title: 'Basic Info',
+            icon: Icons.business_outlined,
+            children: [
           TextFormField(
             controller: _companyController,
             decoration: _inputDecor('Company *'),
             validator: (value) => value == null || value.isEmpty ? 'Required' : null,
           ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _phoneController,
             keyboardType: TextInputType.text,
             decoration: _inputDecor('Phone'),
           ),
-          const SizedBox(height: 16),
+            ],
+          ),
+          FormSection(
+            index: 1,
+            title: 'Address',
+            icon: Icons.location_on_outlined,
+            children: [
           TextFormField(
             controller: _addressController,
             maxLines: 2,
             decoration: _inputDecor('Address'),
           ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: _cityController,
             decoration: _inputDecor('City'),
           ),
-          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -537,28 +567,26 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          DropdownButtonFormField<String>(
+          SearchableSelectField(
+            label: 'Country',
             decoration: _inputDecor('Country'),
-            isExpanded: true,
+            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
             value: _selectedCountry,
-            items: _countries.map<DropdownMenuItem<String>>((c) {
-              return DropdownMenuItem<String>(
-                value: c['country_id'].toString(),
-                child: Text(c['short_name']),
-              );
-            }).toList(),
             onChanged: (val) => setState(() => _selectedCountry = val),
           ),
-          const SizedBox(height: 16),
-
+            ],
+          ),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('More Options', style: TextStyle(fontWeight: FontWeight.w600)),
-              childrenPadding: const EdgeInsets.only(bottom: 16),
+              leading: Icon(Icons.tune, color: Theme.of(context).colorScheme.primary),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+              backgroundColor: Colors.white,
+              collapsedBackgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE6E8EC))),
+              collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE6E8EC))),
+              title: Text('More Options', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
                 const SizedBox(height: 8),
                 TextFormField(
@@ -612,30 +640,20 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                 ),
                 const SizedBox(height: 16),
 
-                DropdownButtonFormField<String>(
+                SearchableSelectField(
+                  label: 'Currency',
                   decoration: _inputDecor('Currency'),
-                  isExpanded: true,
+                  options: _currencies.map<SelectOption>((c) => SelectOption(c['id'].toString(), '${c['name']} (${c['symbol']})')).toList(),
                   value: _selectedCurrency,
-                  items: _currencies.map<DropdownMenuItem<String>>((c) {
-                    return DropdownMenuItem<String>(
-                      value: c['id'].toString(),
-                      child: Text('${c['name']} (${c['symbol']})'),
-                    );
-                  }).toList(),
                   onChanged: (val) => setState(() => _selectedCurrency = val),
                 ),
                 const SizedBox(height: 16),
 
-                DropdownButtonFormField<String>(
+                SearchableSelectField(
+                  label: 'Default Language',
                   decoration: _inputDecor('Default Language'),
-                  isExpanded: true,
+                  options: _languages.map<SelectOption>((l) => SelectOption(l.toString(), l.toString())).toList(),
                   value: _selectedLanguage,
-                  items: _languages.map<DropdownMenuItem<String>>((l) {
-                    return DropdownMenuItem<String>(
-                      value: l.toString(),
-                      child: Text(l.toString()),
-                    );
-                  }).toList(),
                   onChanged: (val) => setState(() => _selectedLanguage = val),
                 ),
                 const SizedBox(height: 16),
@@ -690,16 +708,11 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             ],
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
+          SearchableSelectField(
+            label: 'Country',
             decoration: _inputDecor('Country'),
-            isExpanded: true,
+            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
             value: _billingCountry,
-            items: _countries.map<DropdownMenuItem<String>>((c) {
-              return DropdownMenuItem<String>(
-                value: c['country_id'].toString(),
-                child: Text(c['short_name']),
-              );
-            }).toList(),
             onChanged: (val) => setState(() => _billingCountry = val),
           ),
 
@@ -747,16 +760,11 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             ],
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
+          SearchableSelectField(
+            label: 'Country',
             decoration: _inputDecor('Country'),
-            isExpanded: true,
+            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
             value: _shippingCountry,
-            items: _countries.map<DropdownMenuItem<String>>((c) {
-              return DropdownMenuItem<String>(
-                value: c['country_id'].toString(),
-                child: Text(c['short_name']),
-              );
-            }).toList(),
             onChanged: (val) => setState(() => _shippingCountry = val),
           ),
       ],

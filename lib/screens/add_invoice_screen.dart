@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../widgets/form_section.dart';
+import '../widgets/popup_title.dart';
+import '../widgets/searchable_select_field.dart';
 
 class AddInvoiceScreen extends StatefulWidget {
   final String? invoiceId;
@@ -288,19 +291,16 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(editIndex == null ? 'Add Item' : 'Edit Item', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    PopupTitle(editIndex == null ? 'Add Item' : 'Edit Item', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     if (_flatAvailableItems.isNotEmpty) ...[
-                      DropdownButtonFormField<String>(
+                      SearchableSelectField(
+                        label: 'Pick from catalog (optional)',
                         decoration: _inputDecor('Pick from catalog (optional)'),
-                        isExpanded: true,
                         value: null,
-                        items: _flatAvailableItems.map((item) {
+                        options: _flatAvailableItems.map<SelectOption>((item) {
                           final rateVal = item['rate'] != null ? double.tryParse(item['rate'].toString()) ?? 0.0 : 0.0;
-                          return DropdownMenuItem<String>(
-                            value: item['id'].toString(),
-                            child: Text('(${rateVal.toStringAsFixed(2)}) ${item['description']}', overflow: TextOverflow.ellipsis),
-                          );
+                          return SelectOption(item['id'].toString(), '(${rateVal.toStringAsFixed(2)}) ${item['description']}');
                         }).toList(),
                         onChanged: (val) {
                           if (val == null) return;
@@ -355,13 +355,17 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                             return StatefulBuilder(
                               builder: (dialogContext, setDialogState) {
                                 return AlertDialog(
-                                  title: const Text('Select Taxes'),
+                                  title: const PopupTitle('Select Taxes'),
                                   content: SingleChildScrollView(
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: _taxes.map((t) {
                                         final taxVal = '${t['name']}|${t['taxrate']}';
                                         return CheckboxListTile(
+                                          dense: true,
+                                          visualDensity: const VisualDensity(vertical: -2),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                          controlAffinity: ListTileControlAffinity.leading,
                                           title: Text('${t['name']} (${t['taxrate']}%)'),
                                           value: _stagingTaxes.contains(taxVal),
                                           onChanged: (val) {
@@ -581,12 +585,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   }
 
   InputDecoration _inputDecor(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-    );
+    return InputDecoration(labelText: label);
   }
 
   // --- Calculations & Currency Helpers ---
@@ -709,22 +708,21 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               if (widget.invoiceId == null) ...[
-                OutlinedButton(
-                  onPressed: _isSaving || _isLoading ? null : () => _saveInvoice(true),
-                  child: const Text('Save as Draft'),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isSaving || _isLoading ? null : () => _saveInvoice(true),
+                    child: const Text('Save as Draft'),
+                  ),
                 ),
                 const SizedBox(width: 12),
               ],
-              ElevatedButton(
-                onPressed: _isSaving || _isLoading ? null : () => _saveInvoice(false),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isSaving || _isLoading ? null : () => _saveInvoice(false),
+                  child: const Text('Save'),
                 ),
-                child: const Text('Save'),
               ),
             ],
           ),
@@ -739,169 +737,178 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Customer
-                    DropdownButtonFormField<String>(
-                      decoration: _inputDecor('Customer *'),
-                      isExpanded: true,
-                      value: _selectedCustomer,
-                      items: _customers.map<DropdownMenuItem<String>>((c) {
-                        return DropdownMenuItem<String>(
-                          value: c['userid'].toString(),
-                          child: Text(c['company']),
-                        );
-                      }).toList(),
-                      onChanged: (val) => _onCustomerChanged(val),
-                      validator: (value) => value == null ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildAddressSection(),
-                    const SizedBox(height: 16),
-                    
-                    // Only the fields staff actually need to enter day-to-day.
-                    // Everything else (invoice number, currency, sale agent,
-                    // recurring, discount type, payment modes, notes) already
-                    // has a sensible default computed above/below and is sent
-                    // to the backend as-is - no need to ask for it here. Those
-                    // can still be changed later from the web admin panel.
-                    TextFormField(
-                      controller: _dueDateController,
-                      readOnly: true,
-                      decoration: _inputDecor('Due Date').copyWith(
-                        suffixIcon: const Icon(Icons.calendar_today),
-                      ),
-                      onTap: () => _selectDate(_dueDateController),
-                    ),
-                    const SizedBox(height: 8),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    FormSection(
+                      index: 0,
+                      title: 'Invoice Details',
+                      icon: Icons.receipt_long_outlined,
                       children: [
-                        const Text('Items', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Items List - tap a row to edit it
-                    if (_invoiceItems.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text('No items yet. Tap "Add Item" below.', style: TextStyle(color: Colors.grey.shade600)),
-                      ),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _invoiceItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _invoiceItems[index];
-                        final qty = item['qty'] as double;
-                        final rate = item['rate'] as double;
-                        final total = qty * rate;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            onTap: () => _openAddItemSheet(editIndex: index),
-                            title: Text(item['description']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Qty: $qty x $_currencySymbol${rate.toStringAsFixed(2)} = $_currencySymbol${total.toStringAsFixed(2)}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _removeItem(index),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () => _openAddItemSheet(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Item'),
-                    ),
-
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    // Totals
-                    Row(
-                      children: [
-                        const Expanded(child: Text('Sub Total:', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
-                        const SizedBox(width: 189),
-                        SizedBox(width: 80, child: Text('$_currencySymbol${_subTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 16))),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Expanded(child: Text('Discount:', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 60,
-                          child: TextFormField(
-                            controller: _discountController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8), border: OutlineInputBorder()),
-                            onChanged: (_) => setState(() {}),
-                          ),
+                        SearchableSelectField(
+                          label: 'Customer *',
+                          decoration: _inputDecor('Customer *'),
+                          options: _customers.map<SelectOption>((c) => SelectOption(c['userid'].toString(), c['company'].toString())).toList(),
+                          value: _selectedCustomer,
+                          onChanged: (val) => _onCustomerChanged(val),
+                          validator: (value) => value == null ? 'Required' : null,
                         ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 105,
-                          child: DropdownButtonFormField<String>(
-                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4), border: OutlineInputBorder()),
-                            isExpanded: true,
-                            value: _discountSymbol,
-                            items: const [
-                              DropdownMenuItem(value: '%', child: Text('%')),
-                              DropdownMenuItem(value: 'Fixed Amount', child: Text('Fixed Amount', style: TextStyle(fontSize: 12))),
+                        // Address block slides open once a customer is picked.
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                          alignment: Alignment.topCenter,
+                          child: _selectedCustomer == null
+                              ? const SizedBox(width: double.infinity)
+                              : Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF4F6FA),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: _buildAddressSection(),
+                                ),
+                        ),
+                        // Only the fields staff actually need to enter day-to-day.
+                        // Everything else (invoice number, currency, sale agent,
+                        // recurring, discount type, payment modes, notes) already
+                        // has a sensible default computed above/below and is sent
+                        // to the backend as-is - no need to ask for it here. Those
+                        // can still be changed later from the web admin panel.
+                        TextFormField(
+                          controller: _dueDateController,
+                          readOnly: true,
+                          decoration: _inputDecor('Due Date').copyWith(
+                            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+                          ),
+                          onTap: () => _selectDate(_dueDateController),
+                        ),
+                      ],
+                    ),
+                    FormSection(
+                      index: 1,
+                      title: 'Items',
+                      icon: Icons.list_alt_outlined,
+                      trailing: _invoiceItems.isEmpty
+                          ? null
+                          : Text('${_invoiceItems.length} added', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      children: [
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                          alignment: Alignment.topCenter,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (_invoiceItems.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Text('No items yet. Tap "Add Item" below.', style: TextStyle(color: Colors.grey.shade600)),
+                                ),
+                              // Tap a row to edit it
+                              for (var index = 0; index < _invoiceItems.length; index++)
+                                Builder(builder: (context) {
+                                  final item = _invoiceItems[index];
+                                  final qty = item['qty'] as double;
+                                  final rate = item['rate'] as double;
+                                  final total = qty * rate;
+                                  // Material (not a coloured Container) so ListTile's
+                                  // ink/background paints on the right surface.
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Material(
+                                      color: const Color(0xFFF4F6FA),
+                                      borderRadius: BorderRadius.circular(12),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: ListTile(
+                                        dense: true,
+                                        contentPadding: const EdgeInsets.only(left: 12, right: 4),
+                                        onTap: () => _openAddItemSheet(editIndex: index),
+                                        title: Text(item['description']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        subtitle: Text('Qty: $qty x $_currencySymbol${rate.toStringAsFixed(2)} = $_currencySymbol${total.toStringAsFixed(2)}'),
+                                        trailing: IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                          onPressed: () => _removeItem(index),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                             ],
-                            onChanged: (val) => setState(() => _discountSymbol = val ?? '%'),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        SizedBox(width: 80, child: Text('-$_currencySymbol${_discountAmount.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 16))),
+                        OutlinedButton.icon(
+                          onPressed: () => _openAddItemSheet(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Item'),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    ..._taxBreakdown.entries.map(
-                      (tax) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
+                    FormSection(
+                      index: 2,
+                      title: 'Summary',
+                      icon: Icons.calculate_outlined,
+                      children: [
+                        Row(
                           children: [
-                            Expanded(child: Text('${tax.key}:', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            const SizedBox(width: 189),
-                            SizedBox(width: 80, child: Text('$_currencySymbol${tax.value.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 16))),
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _discountController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: _inputDecor('Discount'),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 3,
+                              child: DropdownButtonFormField<String>(
+                                decoration: _inputDecor('Type'),
+                                isExpanded: true,
+                                value: _discountSymbol,
+                                items: const [
+                                  DropdownMenuItem(value: '%', child: Text('%')),
+                                  DropdownMenuItem(value: 'Fixed Amount', child: Text('Fixed Amount')),
+                                ],
+                                onChanged: (val) => setState(() => _discountSymbol = val ?? '%'),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        const Expanded(child: Text('Adjustment:', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold))),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 60,
-                          child: TextFormField(
-                            controller: _adjustmentController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8), border: OutlineInputBorder()),
-                            onChanged: (_) => setState(() {}),
-                          ),
+                        TextFormField(
+                          controller: _adjustmentController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                          decoration: _inputDecor('Adjustment'),
+                          onChanged: (_) => setState(() {}),
                         ),
-                        const SizedBox(width: 121),
-                        SizedBox(width: 80, child: Text('$_currencySymbol${(double.tryParse(_adjustmentController.text) ?? 0).toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 16))),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Expanded(child: Text('Total:', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue))),
-                        const SizedBox(width: 189),
-                        SizedBox(width: 80, child: Text('$_currencySymbol${_grandTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                        const Divider(height: 8),
+                        _summaryRow('Sub Total', '$_currencySymbol${_subTotal.toStringAsFixed(2)}'),
+                        ..._taxBreakdown.entries.map((tax) => _summaryRow(tax.key, '$_currencySymbol${tax.value.toStringAsFixed(2)}')),
+                        _summaryRow('Discount', '-$_currencySymbol${_discountAmount.toStringAsFixed(2)}'),
+                        _summaryRow('Adjustment', '$_currencySymbol${(double.tryParse(_adjustmentController.text) ?? 0).toStringAsFixed(2)}'),
+                        const Divider(height: 8),
+                        _summaryRow('Total', '$_currencySymbol${_grandTotal.toStringAsFixed(2)}', big: true),
                       ],
                     ),
 
-                    const SizedBox(height: 80),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {bool big = false}) {
+    final style = TextStyle(
+      fontSize: big ? 18 : 14,
+      fontWeight: big ? FontWeight.bold : FontWeight.w500,
+      color: big ? Theme.of(context).colorScheme.primary : null,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [Text(label, style: style), Text(value, style: style)],
+      ),
     );
   }
 
@@ -1001,7 +1008,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('Edit Address Details'),
+            title: const PopupTitle('Edit Address Details'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1017,16 +1024,11 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   const SizedBox(height: 8),
                   TextFormField(controller: billZipCtrl, decoration: _inputDecor('Zip Code')),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
+                  SearchableSelectField(
+                    label: 'Country',
                     decoration: _inputDecor('Country'),
-                    isExpanded: true,
+                    options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
                     value: tempBillCountry,
-                    items: _countries.map<DropdownMenuItem<String>>((c) {
-                      return DropdownMenuItem<String>(
-                        value: c['country_id'].toString(),
-                        child: Text(c['short_name']),
-                      );
-                    }).toList(),
                     onChanged: (val) => setDialogState(() => tempBillCountry = val),
                   ),
                   
@@ -1065,18 +1067,13 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                     const SizedBox(height: 8),
                     TextFormField(controller: shipZipCtrl, decoration: _inputDecor('Zip Code')),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      decoration: _inputDecor('Country'),
-                      isExpanded: true,
-                      value: tempShipCountry,
-                      items: _countries.map<DropdownMenuItem<String>>((c) {
-                        return DropdownMenuItem<String>(
-                          value: c['country_id'].toString(),
-                          child: Text(c['short_name']),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setDialogState(() => tempShipCountry = val),
-                    ),
+                    SearchableSelectField(
+                    label: 'Country',
+                    decoration: _inputDecor('Country'),
+                    options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
+                    value: tempShipCountry,
+                    onChanged: (val) => setDialogState(() => tempShipCountry = val),
+                  ),
                   ]
                 ],
               ),

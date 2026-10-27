@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/form_section.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 
@@ -86,12 +87,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
   }
 
   InputDecoration _inputDecor(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-    );
+    return InputDecoration(labelText: label);
   }
 
   Future<void> _saveContact() async {
@@ -174,22 +170,22 @@ class _AddContactScreenState extends State<AddContactScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveContact,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _saveContact,
+                  child: _isLoading
+                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Save Contact'),
                 ),
-                child: _isLoading 
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                    : const Text('Save Contact'),
               ),
             ],
           ),
@@ -233,97 +229,124 @@ class _AddContactScreenState extends State<AddContactScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _firstNameController,
-                decoration: _inputDecor('First Name *'),
-                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: _inputDecor('Last Name *'),
-                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: _inputDecor('Email *'),
-                validator: (value) => value == null || value.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.text, // Changed from phone to text to fix emulator backspace bug
-                decoration: _inputDecor('Phone'),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _titleController,
-                decoration: _inputDecor('Position / Title'),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: _inputDecor('Direction'),
-                value: _direction,
-                items: ['System Default', 'LTR', 'RTL'].map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-                onChanged: (v) => setState(() => _direction = v!),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: _inputDecor('Password'),
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Primary Contact'),
-                value: _isPrimary,
-                onChanged: (v) => setState(() => _isPrimary = v ?? false),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Do not send welcome email'),
-                value: _doNotSendWelcomeEmail,
-                onChanged: (v) => setState(() => _doNotSendWelcomeEmail = v ?? false),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Send SET password email'),
-                value: _sendSetPasswordEmail,
-                onChanged: (v) => setState(() => _sendSetPasswordEmail = v ?? false),
-              ),
-              const SizedBox(height: 16),
-              const Text('Permissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Text('Make sure to set appropriate permissions for this contact', style: TextStyle(color: Colors.red, fontSize: 12)),
-              const SizedBox(height: 8),
-              _buildPermissionSwitch('Invoices', 1),
-              _buildPermissionSwitch('Estimates', 2),
-              _buildPermissionSwitch('Contracts', 3),
-              _buildPermissionSwitch('Proposals', 4),
-              _buildPermissionSwitch('Support', 5),
-              _buildPermissionSwitch('Projects', 6),
-              const SizedBox(height: 16),
-              const Text('Email Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 0,
+              FormSection(
+                index: 0,
+                title: 'Contact Info',
+                icon: Icons.person_outline,
                 children: [
-                  _buildEmailSwitch('Invoice', _invoiceEmails, (v) => setState(() => _invoiceEmails = v)),
-                  _buildEmailSwitch('Estimate', _estimateEmails, (v) => setState(() => _estimateEmails = v)),
-                  _buildEmailSwitch('Credit Note', _creditNoteEmails, (v) => setState(() => _creditNoteEmails = v)),
-                  _buildEmailSwitch('Project', _projectEmails, (v) => setState(() => _projectEmails = v)),
-                  _buildEmailSwitch('Tickets', _ticketEmails, (v) => setState(() => _ticketEmails = v)),
-                  _buildEmailSwitch('Contract', _contractEmails, (v) => setState(() => _contractEmails = v)),
-                  _buildEmailSwitch('Task', _taskEmails, (v) => setState(() => _taskEmails = v)),
+                  TextFormField(
+                    controller: _firstNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _inputDecor('First Name *'),
+                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                  ),
+                  TextFormField(
+                    controller: _lastNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _inputDecor('Last Name *'),
+                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                  ),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _inputDecor('Email *'),
+                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                  ),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.text, // Changed from phone to text to fix emulator backspace bug
+                    decoration: _inputDecor('Phone'),
+                  ),
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: _inputDecor('Position / Title'),
+                  ),
                 ],
               ),
-              const SizedBox(height: 24),
+              FormSection(
+                index: 1,
+                title: 'Account',
+                icon: Icons.lock_outline,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: _inputDecor('Direction'),
+                    value: _direction,
+                    items: ['System Default', 'LTR', 'RTL'].map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                    onChanged: (v) => setState(() => _direction = v!),
+                  ),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: _inputDecor('Password'),
+                  ),
+                  Column(
+                    children: [
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text('Primary Contact'),
+                        value: _isPrimary,
+                        onChanged: (v) => setState(() => _isPrimary = v ?? false),
+                      ),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text('Do not send welcome email'),
+                        value: _doNotSendWelcomeEmail,
+                        onChanged: (v) => setState(() => _doNotSendWelcomeEmail = v ?? false),
+                      ),
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text('Send SET password email'),
+                        value: _sendSetPasswordEmail,
+                        onChanged: (v) => setState(() => _sendSetPasswordEmail = v ?? false),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              FormSection(
+                index: 2,
+                title: 'Permissions',
+                icon: Icons.verified_user_outlined,
+                gap: 0,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Text('Make sure to set appropriate permissions for this contact', style: TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+                  _buildPermissionSwitch('Invoices', 1),
+                  _buildPermissionSwitch('Estimates', 2),
+                  _buildPermissionSwitch('Contracts', 3),
+                  _buildPermissionSwitch('Proposals', 4),
+                  _buildPermissionSwitch('Support', 5),
+                  _buildPermissionSwitch('Projects', 6),
+                ],
+              ),
+              FormSection(
+                index: 3,
+                title: 'Email Notifications',
+                icon: Icons.notifications_none,
+                children: [
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 0,
+                    children: [
+                      _buildEmailSwitch('Invoice', _invoiceEmails, (v) => setState(() => _invoiceEmails = v)),
+                      _buildEmailSwitch('Estimate', _estimateEmails, (v) => setState(() => _estimateEmails = v)),
+                      _buildEmailSwitch('Credit Note', _creditNoteEmails, (v) => setState(() => _creditNoteEmails = v)),
+                      _buildEmailSwitch('Project', _projectEmails, (v) => setState(() => _projectEmails = v)),
+                      _buildEmailSwitch('Tickets', _ticketEmails, (v) => setState(() => _ticketEmails = v)),
+                      _buildEmailSwitch('Contract', _contractEmails, (v) => setState(() => _contractEmails = v)),
+                      _buildEmailSwitch('Task', _taskEmails, (v) => setState(() => _taskEmails = v)),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),

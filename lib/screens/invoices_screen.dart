@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import 'add_invoice_screen.dart';
 import 'invoice_view_screen.dart';
+import '../widgets/animated_entry.dart';
+import '../widgets/empty_state.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -104,7 +106,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           setState(() => _isLoading = false);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Failed to delete invoice')),
+              SnackBar(content: Text(response['message']?.toString() ?? 'Failed to delete invoice')),
             );
           }
         }
@@ -128,16 +130,15 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by Invoice # or Total...',
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(icon: const Icon(Icons.close), onPressed: _searchController.clear),
               ),
             ),
           ),
@@ -145,85 +146,118 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredInvoices.isEmpty
-                    ? const Center(child: Text('No invoices found.'))
+                    ? const EmptyState(icon: Icons.receipt_long_outlined, message: 'No invoices found')
                     : RefreshIndicator(
                         onRefresh: _fetchInvoices,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.only(bottom: 88),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(top: 4, bottom: 88),
                           itemCount: _filteredInvoices.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final invoice = _filteredInvoices[index];
                       final st = InvoiceStatus.of(invoice['status']);
                       final statusColor = st.color;
                       final statusText = st.label;
 
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          child: Icon(Icons.receipt, color: Theme.of(context).colorScheme.primary),
-                        ),
-                        title: Text(
-                          '${invoice['prefix']}${invoice['number']}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text('Total: \$${invoice['total']}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: statusColor),
-                              ),
-                              child: Text(
-                                statusText,
-                                style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'view') {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => InvoiceViewScreen(invoiceId: invoice['id'].toString()),
-                                    ),
-                                  ).then((_) => _fetchInvoices());
-                                } else if (value == 'edit') {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AddInvoiceScreen(invoiceId: invoice['id'].toString()),
-                                    ),
-                                  ).then((_) => _fetchInvoices());
-                                } else if (value == 'delete') {
-                                  _deleteInvoice(invoice['id'].toString());
-                                }
-                              },
-                              itemBuilder: (context) {
-                                final auth = Provider.of<AuthProvider>(context, listen: false);
-                                return [
-                                  const PopupMenuItem(
-                                    value: 'view',
-                                    child: Text('View'),
+                      void openView() {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InvoiceViewScreen(invoiceId: invoice['id'].toString()),
+                          ),
+                        ).then((_) => _fetchInvoices());
+                      }
+
+                      return AnimatedEntry(
+                        index: index,
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: openView,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: statusColor.withValues(alpha: 0.12),
+                                    child: Icon(Icons.receipt_long, color: statusColor),
                                   ),
-                                  if (auth.canEditInvoice)
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('Edit'),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${invoice['prefix']}${invoice['number']}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            statusText,
+                                            style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  if (auth.canDeleteInvoice)
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete', style: TextStyle(color: Colors.red)),
-                                    ),
-                                ];
-                              },
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('\$${invoice['total']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      Text('Total', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                    ],
+                                  ),
+                                  PopupMenuButton<String>(
+                                                                onSelected: (value) {
+                                                                  if (value == 'view') {
+                                                                    Navigator.push(
+                                                                      context,
+                                                                      MaterialPageRoute(
+                                                                        builder: (_) => InvoiceViewScreen(invoiceId: invoice['id'].toString()),
+                                                                      ),
+                                                                    ).then((_) => _fetchInvoices());
+                                                                  } else if (value == 'edit') {
+                                                                    Navigator.push(
+                                                                      context,
+                                                                      MaterialPageRoute(
+                                                                        builder: (_) => AddInvoiceScreen(invoiceId: invoice['id'].toString()),
+                                                                      ),
+                                                                    ).then((_) => _fetchInvoices());
+                                                                  } else if (value == 'delete') {
+                                                                    _deleteInvoice(invoice['id'].toString());
+                                                                  }
+                                                                },
+                                                                itemBuilder: (context) {
+                                                                  final auth = Provider.of<AuthProvider>(context, listen: false);
+                                                                  return [
+                                                                    const PopupMenuItem(
+                                                                      value: 'view',
+                                                                      child: Text('View'),
+                                                                    ),
+                                                                    if (auth.canEditInvoice)
+                                                                      const PopupMenuItem(
+                                                                        value: 'edit',
+                                                                        child: Text('Edit'),
+                                                                      ),
+                                                                    if (auth.canDeleteInvoice && invoice['can_delete'] != false)
+                                                                      const PopupMenuItem(
+                                                                        value: 'delete',
+                                                                        child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                                                      ),
+                                                                  ];
+                                                                },
+                                                              ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
                       );
                     },
