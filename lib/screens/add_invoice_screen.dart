@@ -212,7 +212,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   Future<void> _selectDate(TextEditingController controller) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: DateTime.tryParse(controller.text) ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
@@ -221,6 +221,17 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
         controller.text = picked.toString().split(' ')[0];
       });
     }
+  }
+
+  Widget _dateField(String label, TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: _inputDecor(label).copyWith(
+        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+      ),
+      onTap: () => _selectDate(controller),
+    );
   }
 
   List<dynamic> get _flatAvailableItems {
@@ -772,13 +783,12 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         // has a sensible default computed above/below and is sent
                         // to the backend as-is - no need to ask for it here. Those
                         // can still be changed later from the web admin panel.
-                        TextFormField(
-                          controller: _dueDateController,
-                          readOnly: true,
-                          decoration: _inputDecor('Due Date').copyWith(
-                            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
-                          ),
-                          onTap: () => _selectDate(_dueDateController),
+                        Row(
+                          children: [
+                            Expanded(child: _dateField('Invoice Date', _invoiceDateController)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _dateField('Due Date', _dueDateController)),
+                          ],
                         ),
                       ],
                     ),
