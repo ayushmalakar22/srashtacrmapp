@@ -80,7 +80,7 @@ class AuthProvider with ChangeNotifier {
         return {'success': false, 'message': response['message']};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error occurred.'};
+      return {'success': false, 'message': 'Cannot reach the server. Tap "Server" below to check the address.'};
     }
   }
 

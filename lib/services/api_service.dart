@@ -19,9 +19,61 @@ class ApiService {
   // bare-metal "php -S" port.
   static const String _dockerPort = '8080';
 
-  static String get baseUrl {
+  // Address chosen in the app (login screen > Server). Wins over everything
+  // else, so it survives rebuilds / `flutter run` without --dart-define.
+  static String? _savedBaseUrl;
+
+  static String get defaultBaseUrl {
     if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
     return 'http://$_lanHost:$_dockerPort/mobile_api';
+  }
+
+  static String get baseUrl => _savedBaseUrl ?? defaultBaseUrl;
+
+  static Future<void> loadServerUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('server_url');
+    _savedBaseUrl = (saved == null || saved.isEmpty) ? null : saved;
+  }
+
+  /// "192.168.0.197:8080", "http://host:8080" or the full ".../mobile_api" URL
+  /// -> full API base URL. Null when the input is empty.
+  static String? normalizeServerUrl(String input) {
+    var u = input.trim();
+    if (u.isEmpty) return null;
+    if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'http://$u';
+    u = u.replaceAll(RegExp(r'/+$'), '');
+    if (!u.endsWith('/mobile_api')) u = '$u/mobile_api';
+    return u;
+  }
+
+  /// Saves the address; an empty value goes back to the default.
+  static Future<void> setServerUrl(String input) async {
+    final prefs = await SharedPreferences.getInstance();
+    final url = normalizeServerUrl(input);
+    if (url == null) {
+      await prefs.remove('server_url');
+      _savedBaseUrl = null;
+    } else {
+      await prefs.setString('server_url', url);
+      _savedBaseUrl = url;
+    }
+  }
+
+  /// Null when [url] answers like the CRM API, otherwise a short reason.
+  static Future<String?> testServer(String url) async {
+    try {
+      final res = await http
+          .get(Uri.parse('$url/login'))
+          .timeout(const Duration(seconds: 6));
+      final body = jsonDecode(res.body);
+      if (body is Map && body.containsKey('status')) return null;
+      return 'Reached a server, but it is not the CRM API';
+    } on FormatException {
+      return 'Reached a server, but it is not the CRM API';
+    } catch (_) {
+      return 'Cannot reach the server. Check the address and that you are on the same Wi-Fi.';
+    }
   }
 
   static Future<Map<String, String>> _getHeaders() async {
@@ -324,6 +376,122 @@ class ApiService {
     final headers = await _getHeaders();
     final response = await http.post(
       Uri.parse('$baseUrl/delete_invoice/$id'),
+      headers: headers,
+    );
+    return jsonDecode(response.body);
+  }
+
+  // --- PAYMENTS ---
+  static Future<Map<String, dynamic>> getInvoicePayments(String invoiceId) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+        Uri.parse('$baseUrl/invoice_payments/$invoiceId'),
+        headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> addPayment(
+      String invoiceId, Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/add_payment/$invoiceId'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> deletePayment(String paymentId) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/delete_payment/$paymentId'),
+      headers: headers,
+    );
+    return jsonDecode(response.body);
+  }
+
+  // --- SEND ---
+  static Future<Map<String, dynamic>> sendInvoice(String invoiceId) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/send_invoice/$invoiceId'),
+      headers: headers,
+      body: jsonEncode({}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  // --- PENDING LEDGER ---
+  static Future<Map<String, dynamic>> getPending() async {
+    final headers = await _getHeaders();
+    final response = await http.get(Uri.parse('$baseUrl/pending'), headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  // --- ESTIMATES ---
+  static Future<Map<String, dynamic>> getEstimates(
+      {int limit = 1000, int offset = 0}) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+        Uri.parse('$baseUrl/estimates?limit=$limit&offset=$offset'),
+        headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> getEstimate(String id) async {
+    final headers = await _getHeaders();
+    final response =
+        await http.get(Uri.parse('$baseUrl/estimates/$id'), headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> convertEstimate(String id,
+      {bool draft = false}) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/convert_estimate/$id'),
+      headers: headers,
+      body: jsonEncode({'save_as_draft': draft}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> setEstimateStatus(
+      String id, int status) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/estimate_status/$id/$status'),
+      headers: headers,
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> addEstimate(
+      Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/estimates'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> updateEstimate(
+      String id, Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/estimates/$id'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> deleteEstimate(String id) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/delete_estimate/$id'),
       headers: headers,
     );
     return jsonDecode(response.body);

@@ -23,7 +23,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchStats() async {
-    if (mounted) Provider.of<AuthProvider>(context, listen: false).fetchPermissions();
+    if (mounted)
+      Provider.of<AuthProvider>(context, listen: false).fetchPermissions();
     try {
       final data = await ApiService.getDashboardStats();
       if (data['status'] == true) {
@@ -77,7 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    AnimatedEntry(index: 0, child: _buildHero(theme, authProvider.userName)),
+                    AnimatedEntry(
+                        index: 0,
+                        child: _buildHero(theme, authProvider.userName)),
                     const SizedBox(height: 20),
                     if (_stats != null) _buildStats(theme),
                     if (_stats == null && _error != null)
@@ -103,7 +106,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           colors: [theme.colorScheme.primary, const Color(0xFF1A5FD0)],
         ),
         boxShadow: [
-          BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 8)),
+          BoxShadow(
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 8)),
         ],
       ),
       child: Row(
@@ -112,21 +118,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_greeting, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(_greeting,
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 4),
                 Text(
                   '${userName ?? ''} 👋',
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text("Here's how your business is doing", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const Text("Here's how your business is doing",
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), shape: BoxShape.circle),
-            child: const Icon(Icons.insights_rounded, color: Colors.white, size: 28),
+            decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                shape: BoxShape.circle),
+            child: const Icon(Icons.insights_rounded,
+                color: Colors.white, size: 28),
           ),
         ],
       ),
@@ -136,17 +151,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStats(ThemeData theme) {
     final s = _stats!;
     final cards = <_Stat>[
-      _Stat('Active Customers', s['total_active_customers'], Icons.people_alt_outlined, theme.colorScheme.primary),
-      _Stat('${s['unpaid_invoices_count']} Unpaid Invoices', s['unpaid_invoices_amount'], Icons.receipt_long_outlined, const Color(0xFFF9AB00), money: true),
-      _Stat('${s['paid_invoices_count']} Paid Invoices', s['paid_invoices_amount'], Icons.check_circle_outline, const Color(0xFF34A853), money: true),
-      _Stat('${s['overdue_invoices_count']} Overdue Invoices', s['overdue_invoices_amount'], Icons.warning_amber_rounded, theme.colorScheme.error, money: true),
-      _Stat('${s['draft_invoices_count']} Draft Invoices', s['draft_invoices_amount'], Icons.edit_document, Colors.grey.shade600, money: true),
+      _Stat('Active Customers', s['total_active_customers'],
+          Icons.people_alt_outlined, theme.colorScheme.primary),
+      _Stat(
+          '${s['unpaid_invoices_count']} Unpaid Invoices',
+          s['unpaid_invoices_amount'],
+          Icons.receipt_long_outlined,
+          const Color(0xFFF9AB00),
+          money: true),
+      _Stat(
+          '${s['paid_invoices_count']} Paid Invoices',
+          s['paid_invoices_amount'],
+          Icons.check_circle_outline,
+          const Color(0xFF34A853),
+          money: true),
+      _Stat(
+          '${s['overdue_invoices_count']} Overdue Invoices',
+          s['overdue_invoices_amount'],
+          Icons.warning_amber_rounded,
+          theme.colorScheme.error,
+          money: true),
+      _Stat('${s['draft_invoices_count']} Draft Invoices',
+          s['draft_invoices_amount'], Icons.edit_document, Colors.grey.shade600,
+          money: true),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 12.0;
-        final cols = constraints.maxWidth >= 900 ? 4 : (constraints.maxWidth >= 600 ? 3 : 2);
+        final cols = constraints.maxWidth >= 900
+            ? 4
+            : (constraints.maxWidth >= 600 ? 3 : 2);
         final cardWidth = (constraints.maxWidth - gap * (cols - 1)) / cols;
         return Wrap(
           spacing: gap,
@@ -155,7 +190,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             for (var i = 0; i < cards.length; i++)
               SizedBox(
                 width: cardWidth,
-                child: AnimatedEntry(index: i + 1, child: _buildStatCard(cards[i])),
+                child: AnimatedEntry(
+                    index: i + 1, child: _buildStatCard(cards[i])),
               ),
           ],
         );
@@ -187,7 +223,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 4),
           Text(
             stat.title,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -201,7 +240,8 @@ class _Stat {
   final IconData icon;
   final Color color;
   final bool money;
-  const _Stat(this.title, this.value, this.icon, this.color, {this.money = false});
+  const _Stat(this.title, this.value, this.icon, this.color,
+      {this.money = false});
 }
 
 /// Number that counts up from zero when it first appears.
@@ -212,14 +252,22 @@ class _CountUp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
+    const style = TextStyle(
+        fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
     final target = double.tryParse(raw.toString());
-    if (target == null) return Text(money ? '\$$raw' : raw.toString(), style: style);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: target),
-      duration: const Duration(milliseconds: 900),
-      curve: Curves.easeOutCubic,
-      builder: (_, v, __) => Text(money ? '\$${v.toStringAsFixed(2)}' : v.round().toString(), style: style),
+    if (target == null)
+      return Text(money ? '\$$raw' : raw.toString(), style: style);
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: target),
+        duration: const Duration(milliseconds: 900),
+        curve: Curves.easeOutCubic,
+        builder: (_, v, __) => Text(
+            money ? '\$${v.toStringAsFixed(2)}' : v.round().toString(),
+            style: style),
+      ),
     );
   }
 }

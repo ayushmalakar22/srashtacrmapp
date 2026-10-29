@@ -5,8 +5,11 @@ import '../widgets/popup_title.dart';
 import '../widgets/searchable_select_field.dart';
 
 class AddInvoiceScreen extends StatefulWidget {
+  /// Invoice id, or the estimate id when [isEstimate] is set.
   final String? invoiceId;
-  const AddInvoiceScreen({super.key, this.invoiceId});
+  /// Reuses this form for estimates (same fields; "Valid Till" instead of due date).
+  final bool isEstimate;
+  const AddInvoiceScreen({super.key, this.invoiceId, this.isEstimate = false});
 
   @override
   State<AddInvoiceScreen> createState() => _AddInvoiceScreenState();
@@ -89,7 +92,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     _invoiceDateController.text = DateTime.now().toString().split(' ')[0];
     
     // Default Due Date (1 month from now)
-    _dueDateController.text = DateTime.now().add(const Duration(days: 30)).toString().split(' ')[0];
+    _dueDateController.text =
+        DateTime.now().add(Duration(days: widget.isEstimate ? 7 : 30)).toString().split(' ')[0];
     
     _fetchData();
   }
@@ -125,7 +129,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       }
 
       if (widget.invoiceId != null) {
-        final invoiceResponse = await ApiService.getInvoice(widget.invoiceId!);
+        final invoiceResponse = widget.isEstimate
+            ? await ApiService.getEstimate(widget.invoiceId!)
+            : await ApiService.getInvoice(widget.invoiceId!);
         if (invoiceResponse['status'] == true) {
           _populateInvoiceData(invoiceResponse['data']);
         }
@@ -152,7 +158,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     _invoicePrefix = invoice['prefix']?.toString() ?? 'INV-';
     _invoiceNumberController.text = invoice['number']?.toString() ?? '';
     _invoiceDateController.text = invoice['date']?.toString() ?? '';
-    _dueDateController.text = invoice['duedate']?.toString() ?? '';
+    _dueDateController.text = (widget.isEstimate ? invoice['expirydate'] : invoice['duedate'])?.toString() ?? '';
     _adminNoteController.text = invoice['adminnote']?.toString() ?? '';
     _clientNoteController.text = invoice['clientnote']?.toString() ?? '';
     _termsController.text = invoice['terms']?.toString() ?? '';
@@ -177,7 +183,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     _billingCountry = invoice['billing_country']?.toString();
 
     _includeShipping = invoice['include_shipping'] == '1';
-    _showShippingOnInvoice = invoice['show_shipping_on_invoice'] == '1';
+    _showShippingOnInvoice = invoice[widget.isEstimate ? 'show_shipping_on_estimate' : 'show_shipping_on_invoice'] == '1';
     _showQuantityAs = invoice['show_quantity_as']?.toString() ?? '1';
 
     _shippingStreet = invoice['shipping_street']?.toString();
@@ -227,8 +233,10 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     return TextFormField(
       controller: controller,
       readOnly: true,
+      style: const TextStyle(fontSize: 14),
       decoration: _inputDecor(label).copyWith(
-        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+        suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       onTap: () => _selectDate(controller),
     );
@@ -536,26 +544,28 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
 
     final data = {
       'clientid': _selectedCustomer,
-      'number': _invoiceNumberController.text,
+      if (!widget.isEstimate) 'number': _invoiceNumberController.text,
       'date': _invoiceDateController.text,
-      'duedate': _dueDateController.text,
+      if (widget.isEstimate) 'expirydate': _dueDateController.text else 'duedate': _dueDateController.text,
       'currency': _selectedCurrency,
-      'allowed_payment_modes': _selectedPaymentModes,
+      if (!widget.isEstimate) 'allowed_payment_modes': _selectedPaymentModes,
       'sale_agent': _selectedSaleAgent,
       'discount_type': _selectedDiscountType ?? '',
       'adminnote': _adminNoteController.text,
       'clientnote': _clientNoteController.text,
       'terms': _termsController.text,
-      'recurring': _recurring,
-      'cancel_overdue_reminders': _cancelOverdueReminders ? '1' : '0',
-      'cycles': _infinityCycles ? '0' : _cyclesController.text,
+      if (!widget.isEstimate) ...{
+        'recurring': _recurring,
+        'cancel_overdue_reminders': _cancelOverdueReminders ? '1' : '0',
+        'cycles': _infinityCycles ? '0' : _cyclesController.text,
+      },
       'discount_percent': _discountSymbol == '%' ? _discountController.text : '0',
       'discount_total': _discountSymbol == 'Fixed Amount' ? _discountController.text : '0',
       'adjustment': _adjustmentController.text,
       'items': items,
       'newitems': newitems,
       'removed_items': _removedItems,
-      if (widget.invoiceId == null && asDraft) 'save_as_draft': 'true',
+      if (!widget.isEstimate && widget.invoiceId == null && asDraft) 'save_as_draft': 'true',
       'billing_street': _billingStreet ?? '',
       'billing_city': _billingCity ?? '',
       'billing_state': _billingState ?? '',
@@ -572,14 +582,20 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     };
 
     try {
-      final response = widget.invoiceId == null
-          ? await ApiService.addInvoice(data)
-          : await ApiService.updateInvoice(widget.invoiceId!, data);
-          
+      final what = widget.isEstimate ? 'Estimate' : 'Invoice';
+      final response = widget.isEstimate
+          ? (widget.invoiceId == null
+              ? await ApiService.addEstimate(data)
+              : await ApiService.updateEstimate(widget.invoiceId!, data))
+          : (widget.invoiceId == null
+              ? await ApiService.addInvoice(data)
+              : await ApiService.updateInvoice(widget.invoiceId!, data));
+
       if (response['status'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invoice saved successfully!')));
-          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$what saved successfully!')));
+          // estimates hand the id back so the list can open the saved one
+          Navigator.pop(context, widget.isEstimate ? response['data']['estimate_id'].toString() : true);
         }
       } else {
         if (mounted) {
@@ -713,14 +729,16 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.invoiceId == null ? 'Create New Invoice' : 'Edit Invoice'),
+        title: Text(widget.invoiceId == null
+            ? (widget.isEstimate ? 'Create New Estimate' : 'Create New Invoice')
+            : (widget.isEstimate ? 'Edit Estimate' : 'Edit Invoice')),
       ),
       bottomNavigationBar: BottomAppBar(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              if (widget.invoiceId == null) ...[
+              if (widget.invoiceId == null && !widget.isEstimate) ...[
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _isSaving || _isLoading ? null : () => _saveInvoice(true),
@@ -750,8 +768,8 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   children: [
                     FormSection(
                       index: 0,
-                      title: 'Invoice Details',
-                      icon: Icons.receipt_long_outlined,
+                      title: widget.isEstimate ? 'Estimate Details' : 'Invoice Details',
+                      icon: widget.isEstimate ? Icons.request_quote_outlined : Icons.receipt_long_outlined,
                       children: [
                         SearchableSelectField(
                           label: 'Customer *',
@@ -785,9 +803,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         // can still be changed later from the web admin panel.
                         Row(
                           children: [
-                            Expanded(child: _dateField('Invoice Date', _invoiceDateController)),
+                            Expanded(child: _dateField(widget.isEstimate ? 'Estimate Date' : 'Invoice Date', _invoiceDateController)),
                             const SizedBox(width: 12),
-                            Expanded(child: _dateField('Due Date', _dueDateController)),
+                            Expanded(child: _dateField(widget.isEstimate ? 'Valid Till' : 'Due Date', _dueDateController)),
                           ],
                         ),
                       ],
@@ -1060,7 +1078,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   ),
                   if (tempIncludeShipping)
                     CheckboxListTile(
-                      title: const Text('Show shipping details in invoice'),
+                      title: Text('Show shipping details in ${widget.isEstimate ? 'estimate' : 'invoice'}'),
                       value: tempShowShipping,
                       onChanged: (val) => setDialogState(() => tempShowShipping = val ?? false),
                       contentPadding: EdgeInsets.zero,

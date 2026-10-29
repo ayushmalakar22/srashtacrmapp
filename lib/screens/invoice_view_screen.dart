@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/invoice_status.dart';
+import '../utils/phone.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/record_payment_sheet.dart';
 import 'add_invoice_screen.dart';
 
 class InvoiceViewScreen extends StatefulWidget {
@@ -18,7 +20,8 @@ class InvoiceViewScreen extends StatefulWidget {
 class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _invoice;
-  
+  Map<String, dynamic>? _payments;
+
   @override
   void initState() {
     super.initState();
@@ -28,10 +31,15 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
   Future<void> _fetchInvoice() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.getInvoice(widget.invoiceId);
+      final results = await Future.wait([
+        ApiService.getInvoice(widget.invoiceId),
+        ApiService.getInvoicePayments(widget.invoiceId),
+      ]);
+      final response = results[0];
       if (response['status'] == true) {
         setState(() {
           _invoice = response['data'];
+          _payments = results[1]['status'] == true ? results[1]['data'] : null;
         });
       } else {
         if (mounted) {
@@ -52,24 +60,66 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     return 'Invoice $num - Total: ${_invoice!['total']}\n${_invoice!['share_url'] ?? ''}';
   }
 
+  String get _reminderText {
+    final num = '${_invoice!['prefix'] ?? ''}${_invoice!['number'] ?? ''}';
+    final org = (_invoice!['organization']?['name'] ?? '').toString();
+    final due = (_invoice!['duedate'] ?? '').toString();
+    return 'Hello ${_invoice!['company'] ?? ''},\n'
+        'This is a reminder that a payment of \$${_invoice!['balance_due']} for invoice $num is pending'
+        '${due.isNotEmpty ? ' (due $due)' : ''}.\n'
+        '${_invoice!['share_url'] ?? ''}\n'
+        '${org.isNotEmpty ? 'Thank you, $org' : 'Thank you'}';
+  }
+
+  bool get _isPending => _invoice?['can_remind'] == true;
+
   Future<void> _shareWhatsApp() async {
     if (_invoice == null) return;
-    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_shareText)}');
+    final phone = waNumber((_invoice!['client_phone'] ?? '').toString(), (_invoice!['organization']?['country_code'] ?? '').toString());
+    final text = _isPending ? _reminderText : _shareText;
+    final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
     }
   }
 
-  Future<void> _shareEmail() async {
+  Future<void> _call() async {
+    final phone = (_invoice?['client_phone'] ?? '').toString().trim();
+    if (phone.isEmpty) return;
+    if (!await launchUrl(Uri(scheme: 'tel', path: phone)) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open dialer')));
+    }
+  }
+
+  Future<void> _sendEmail() async {
     if (_invoice == null) return;
-    final num = '${_invoice!['prefix'] ?? ''}${_invoice!['number'] ?? ''}';
-    final uri = Uri(
-      scheme: 'mailto',
-      path: _invoice!['client_email']?.toString() ?? '',
-      query: 'subject=${Uri.encodeComponent('Invoice $num')}&body=${Uri.encodeComponent(_shareText)}',
+    final email = (_invoice!['client_email'] ?? '').toString();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This customer has no contact with an email. Add a contact (with email) under the customer first.'),
+      ));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Email invoice?'),
+        content: Text('It will be emailed to $email.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+        ],
+      ),
     );
-    if (!await launchUrl(uri) && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No email app found')));
+    if (ok != true) return;
+    try {
+      final res = await ApiService.sendInvoice(widget.invoiceId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
+      if (res['status'] == true) _fetchInvoice();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -95,6 +145,121 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     }
   }
   
+  bool get _canReceivePayment {
+    final status = _invoice?['status']?.toString();
+    final balance = double.tryParse(_payments?['balance_due']?.toString() ?? '0') ?? 0;
+    return _payments?['can_create'] == true && status != '2' && status != '5' && balance > 0;
+  }
+
+  Future<void> _receivePayment() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => RecordPaymentSheet(
+        invoiceId: widget.invoiceId,
+        balanceDue: _payments!['balance_due'].toString(),
+        modes: _payments!['payment_modes'] as List,
+      ),
+    );
+    if (saved == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
+      }
+      _fetchInvoice();
+    }
+  }
+
+  Future<void> _deletePayment(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete payment?'),
+        content: const Text('The invoice balance and status will be updated.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final res = await ApiService.deletePayment(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
+      if (res['status'] == true) _fetchInvoice();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Widget _buildPayments() {
+    final p = _payments;
+    if (p == null) return const SizedBox.shrink();
+    final rows = p['payments'] as List;
+    if (rows.isEmpty && !_canReceivePayment) return const SizedBox.shrink();
+    final muted = Colors.grey.shade600;
+    return _card(
+      4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionLabel('Payments', icon: Icons.payments_outlined),
+          Row(
+            children: [
+              Expanded(child: _paySummary('Paid', '\$${p['total_paid']}', Colors.green.shade700)),
+              Expanded(child: _paySummary('Balance Due', '\$${p['balance_due']}', Colors.red.shade700)),
+            ],
+          ),
+          if (_canReceivePayment) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _receivePayment,
+              icon: const Icon(Icons.add_card_rounded),
+              label: const Text('Receive Payment'),
+            ),
+          ],
+          for (final r in rows) ...[
+            Divider(height: 20, color: Colors.grey.shade200),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('\$${r['amount']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text([r['date'], r['mode']].where((e) => e.toString().isNotEmpty).join(' · '),
+                          style: TextStyle(fontSize: 12.5, color: muted)),
+                      if (r['note'].toString().isNotEmpty)
+                        Text(r['note'].toString(), style: TextStyle(fontSize: 12.5, color: muted)),
+                    ],
+                  ),
+                ),
+                if (p['can_delete'] == true)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Delete payment',
+                    onPressed: () => _deletePayment(r['id'].toString()),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _paySummary(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+      ],
+    );
+  }
+
   Widget _card(int index, {required Widget child, EdgeInsets? padding}) {
     return AnimatedEntry(
       index: index,
@@ -210,7 +375,10 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       child: Row(
         children: [
           _actionButton(Icons.chat_rounded, 'WhatsApp', const Color(0xFF25D366), _shareWhatsApp),
-          _actionButton(Icons.email_rounded, 'Email', const Color(0xFFEA4335), _shareEmail),
+          if (_invoice!['can_email'] == true)
+            _actionButton(Icons.email_rounded, 'Email', const Color(0xFFEA4335), _sendEmail),
+          if ((_invoice!['client_phone'] ?? '').toString().trim().isNotEmpty)
+            _actionButton(Icons.call_rounded, 'Call', const Color(0xFF1E88E5), _call),
           _actionButton(Icons.picture_as_pdf_rounded, 'PDF', const Color(0xFFF57C00), _downloadPdf),
         ],
       ),
@@ -427,6 +595,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
             _buildAddresses(),
             _buildItems(items),
             _buildTotals(items),
+            _buildPayments(),
             _buildNotes(),
             const SizedBox(height: 24),
           ],

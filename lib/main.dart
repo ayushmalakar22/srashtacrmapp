@@ -4,10 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
+import 'services/api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_layout.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiService.loadServerUrl();
   runApp(
     MultiProvider(
       providers: [
@@ -31,6 +34,16 @@ class SrashtaCrmApp extends StatelessWidget {
     return MaterialApp(
       title: 'SrashtaSoft CRM',
       debugShowCheckedModeBanner: false,
+      // Keep content readable on tablets / landscape: centered, max 720 wide.
+      builder: (context, child) => ColoredBox(
+        color: const Color(0xFFF4F6FA),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: child,
+          ),
+        ),
+      ),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(

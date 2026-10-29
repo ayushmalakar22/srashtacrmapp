@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/animated_entry.dart';
+import '../widgets/server_address_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -147,6 +149,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                             child: CircularProgressIndicator(color: cs.onPrimary, strokeWidth: 2),
                                           )
                                         : const Text('Sign In'),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                  onPressed: _isLoading
+                                      ? null
+                                      : () async {
+                                          await showDialog<bool>(
+                                            context: context,
+                                            builder: (_) => const ServerAddressDialog(),
+                                          );
+                                          if (mounted) setState(() {});
+                                        },
+                                  icon: const Icon(Icons.dns_outlined, size: 18),
+                                  label: Text(
+                                    'Server: ${Uri.tryParse(ApiService.baseUrl)?.authority ?? ApiService.baseUrl}',
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
