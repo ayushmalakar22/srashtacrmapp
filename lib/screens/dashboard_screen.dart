@@ -238,6 +238,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+/// 1,234.56 up to 999,999.99; from a million on 1.23M / 4.50B / 3.20T, so a
+/// huge total stays readable on a narrow card instead of shrinking to nothing.
+String formatAmount(double v) {
+  final abs = v.abs();
+  const units = [(1e12, 'T'), (1e9, 'B'), (1e6, 'M')];
+  for (final (size, suffix) in units) {
+    if (abs >= size) return '${(v / size).toStringAsFixed(2)}$suffix';
+  }
+  final parts = abs.toStringAsFixed(2).split('.');
+  final grouped =
+      parts[0].replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+  return '${v < 0 ? '-' : ''}$grouped.${parts[1]}';
+}
+
 class _Stat {
   final String title;
   final dynamic value;
@@ -259,8 +273,9 @@ class _CountUp extends StatelessWidget {
     const style = TextStyle(
         fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
     final target = double.tryParse(raw.toString());
-    if (target == null)
+    if (target == null) {
       return Text(money ? '\$$raw' : raw.toString(), style: style);
+    }
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -269,7 +284,7 @@ class _CountUp extends StatelessWidget {
         duration: const Duration(milliseconds: 900),
         curve: Curves.easeOutCubic,
         builder: (_, v, __) => Text(
-            money ? '\$${v.toStringAsFixed(2)}' : v.round().toString(),
+            money ? '\$${formatAmount(v)}' : v.round().toString(),
             style: style),
       ),
     );
