@@ -21,7 +21,8 @@ class RecordPaymentSheet extends StatefulWidget {
 }
 
 class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
-  late final TextEditingController _amount = TextEditingController(text: widget.balanceDue);
+  late final TextEditingController _amount =
+      TextEditingController(text: widget.balanceDue);
   final _note = TextEditingController();
   final _txn = TextEditingController();
   late String? _mode = _defaultMode();
@@ -63,7 +64,8 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
       error = 'Select a payment mode';
     }
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
@@ -82,13 +84,15 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
         Navigator.of(context).pop(true);
       } else {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(res['message']?.toString() ?? 'Failed to record payment')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                res['message']?.toString() ?? 'Failed to record payment')));
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -103,20 +107,25 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 16),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const PopupTitle('Receive Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            Text('Balance due: \$${widget.balanceDue}', style: TextStyle(color: Colors.grey.shade700)),
+            const PopupTitle('Receive Payment',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text('Balance due: \$${widget.balanceDue}',
+                style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 14),
             TextField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-              decoration: const InputDecoration(labelText: 'Amount', prefixText: '\$ '),
+              decoration:
+                  const InputDecoration(labelText: 'Amount', prefixText: '\$ '),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -124,7 +133,9 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
               decoration: const InputDecoration(labelText: 'Payment Mode'),
               items: [
                 for (final m in widget.modes)
-                  DropdownMenuItem(value: m['id'].toString(), child: Text(m['name'].toString())),
+                  DropdownMenuItem(
+                      value: m['id'].toString(),
+                      child: Text(m['name'].toString())),
               ],
               onChanged: (v) => setState(() => _mode = v),
             ),
@@ -142,7 +153,8 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
             const SizedBox(height: 12),
             TextField(
               controller: _txn,
-              decoration: const InputDecoration(labelText: 'Transaction ID (optional)'),
+              decoration:
+                  const InputDecoration(labelText: 'Transaction ID (optional)'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -161,7 +173,10 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
             FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.check_rounded),
               label: const Text('Save Payment'),
             ),

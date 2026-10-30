@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 class CompactSearchField extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final bool autofocus;
-  const CompactSearchField({super.key, required this.onChanged, this.autofocus = false});
+  const CompactSearchField(
+      {super.key, required this.onChanged, this.autofocus = false});
 
   @override
   State<CompactSearchField> createState() => _CompactSearchFieldState();
@@ -31,8 +32,10 @@ class _CompactSearchFieldState extends State<CompactSearchField> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         prefixIcon: const Icon(Icons.search, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 36),
-        suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 36),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 40, minHeight: 36),
+        suffixIconConstraints:
+            const BoxConstraints(minWidth: 40, minHeight: 36),
         // Rebuilds on every keystroke via the controller so the clear button
         // only shows when there is text to clear.
         suffixIcon: ValueListenableBuilder<TextEditingValue>(

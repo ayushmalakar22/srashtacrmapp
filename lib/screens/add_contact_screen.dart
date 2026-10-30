@@ -61,7 +61,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
       _emailController.text = c['email'] ?? '';
       _phoneController.text = c['phonenumber'] ?? '';
       _titleController.text = c['title'] ?? '';
-      
+
       if (c['direction'] == 'ltr') {
         _direction = 'LTR';
       } else if (c['direction'] == 'rtl') {
@@ -69,7 +69,7 @@ class _AddContactScreenState extends State<AddContactScreen> {
       }
 
       _isPrimary = c['is_primary'] == '1';
-      
+
       // We don't prefill password for security
 
       // Handle permissions (In backend, we might not get permissions array directly, but let's try)
@@ -102,7 +102,9 @@ class _AddContactScreenState extends State<AddContactScreen> {
         'email': _emailController.text.trim(),
         'phonenumber': _phoneController.text.trim(),
         'title': _titleController.text.trim(),
-        'direction': _direction == 'System Default' ? '' : (_direction == 'LTR' ? 'ltr' : 'rtl'),
+        'direction': _direction == 'System Default'
+            ? ''
+            : (_direction == 'LTR' ? 'ltr' : 'rtl'),
       };
 
       if (_passwordController.text.isNotEmpty) {
@@ -137,21 +139,26 @@ class _AddContactScreenState extends State<AddContactScreen> {
         data['profile_image_path'] = _profileImage!.path;
       }
 
-      final response = widget.contact != null 
+      final response = widget.contact != null
           ? await ApiService.updateContact(data)
           : await ApiService.addContact(data);
-          
+
       if (response['status'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(widget.contact != null ? 'Contact updated successfully!' : 'Contact created successfully!')),
+            SnackBar(
+                content: Text(widget.contact != null
+                    ? 'Contact updated successfully!'
+                    : 'Contact created successfully!')),
           );
           Navigator.pop(context, true); // Return true to refresh/close
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response['message'] ?? 'Failed to create contact')),
+            SnackBar(
+                content:
+                    Text(response['message'] ?? 'Failed to create contact')),
           );
         }
       }
@@ -183,7 +190,11 @@ class _AddContactScreenState extends State<AddContactScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveContact,
                   child: _isLoading
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Text('Save Contact'),
                 ),
               ),
@@ -204,18 +215,23 @@ class _AddContactScreenState extends State<AddContactScreen> {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: Colors.grey[200],
-                      backgroundImage: _profileImage != null 
-                          ? FileImage(File(_profileImage!.path)) 
-                          : (widget.contact != null && widget.contact!['profile_image'] != null
+                      backgroundImage: _profileImage != null
+                          ? FileImage(File(_profileImage!.path))
+                          : (widget.contact != null &&
+                                  widget.contact!['profile_image'] != null
                               ? NetworkImage(widget.contact!['profile_image'])
                               : null) as ImageProvider?,
-                      child: _profileImage == null && (widget.contact == null || widget.contact!['profile_image'] == null)
-                          ? const Icon(Icons.person, size: 40, color: Colors.grey) 
+                      child: _profileImage == null &&
+                              (widget.contact == null ||
+                                  widget.contact!['profile_image'] == null)
+                          ? const Icon(Icons.person,
+                              size: 40, color: Colors.grey)
                           : null,
                     ),
                     TextButton.icon(
                       onPressed: () async {
-                        final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+                        final XFile? image = await _picker.pickImage(
+                            source: ImageSource.gallery);
                         if (image != null) {
                           setState(() {
                             _profileImage = image;
@@ -238,23 +254,27 @@ class _AddContactScreenState extends State<AddContactScreen> {
                     controller: _firstNameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: _inputDecor('First Name *'),
-                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
                     controller: _lastNameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: _inputDecor('Last Name *'),
-                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: _inputDecor('Email *'),
-                    validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
                     controller: _phoneController,
-                    keyboardType: TextInputType.text, // Changed from phone to text to fix emulator backspace bug
+                    keyboardType: TextInputType
+                        .text, // Changed from phone to text to fix emulator backspace bug
                     decoration: _inputDecor('Phone'),
                   ),
                   TextFormField(
@@ -271,7 +291,9 @@ class _AddContactScreenState extends State<AddContactScreen> {
                   DropdownButtonFormField<String>(
                     decoration: _inputDecor('Direction'),
                     value: _direction,
-                    items: ['System Default', 'LTR', 'RTL'].map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                    items: ['System Default', 'LTR', 'RTL']
+                        .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                        .toList(),
                     onChanged: (v) => setState(() => _direction = v!),
                   ),
                   TextFormField(
@@ -287,7 +309,8 @@ class _AddContactScreenState extends State<AddContactScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         title: const Text('Primary Contact'),
                         value: _isPrimary,
-                        onChanged: (v) => setState(() => _isPrimary = v ?? false),
+                        onChanged: (v) =>
+                            setState(() => _isPrimary = v ?? false),
                       ),
                       CheckboxListTile(
                         dense: true,
@@ -295,7 +318,8 @@ class _AddContactScreenState extends State<AddContactScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         title: const Text('Do not send welcome email'),
                         value: _doNotSendWelcomeEmail,
-                        onChanged: (v) => setState(() => _doNotSendWelcomeEmail = v ?? false),
+                        onChanged: (v) =>
+                            setState(() => _doNotSendWelcomeEmail = v ?? false),
                       ),
                       CheckboxListTile(
                         dense: true,
@@ -303,7 +327,8 @@ class _AddContactScreenState extends State<AddContactScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         title: const Text('Send SET password email'),
                         value: _sendSetPasswordEmail,
-                        onChanged: (v) => setState(() => _sendSetPasswordEmail = v ?? false),
+                        onChanged: (v) =>
+                            setState(() => _sendSetPasswordEmail = v ?? false),
                       ),
                     ],
                   ),
@@ -317,7 +342,9 @@ class _AddContactScreenState extends State<AddContactScreen> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(bottom: 4),
-                    child: Text('Make sure to set appropriate permissions for this contact', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    child: Text(
+                        'Make sure to set appropriate permissions for this contact',
+                        style: TextStyle(color: Colors.red, fontSize: 12)),
                   ),
                   _buildPermissionSwitch('Invoices', 1),
                   _buildPermissionSwitch('Estimates', 2),
@@ -336,13 +363,20 @@ class _AddContactScreenState extends State<AddContactScreen> {
                     spacing: 16,
                     runSpacing: 0,
                     children: [
-                      _buildEmailSwitch('Invoice', _invoiceEmails, (v) => setState(() => _invoiceEmails = v)),
-                      _buildEmailSwitch('Estimate', _estimateEmails, (v) => setState(() => _estimateEmails = v)),
-                      _buildEmailSwitch('Credit Note', _creditNoteEmails, (v) => setState(() => _creditNoteEmails = v)),
-                      _buildEmailSwitch('Project', _projectEmails, (v) => setState(() => _projectEmails = v)),
-                      _buildEmailSwitch('Tickets', _ticketEmails, (v) => setState(() => _ticketEmails = v)),
-                      _buildEmailSwitch('Contract', _contractEmails, (v) => setState(() => _contractEmails = v)),
-                      _buildEmailSwitch('Task', _taskEmails, (v) => setState(() => _taskEmails = v)),
+                      _buildEmailSwitch('Invoice', _invoiceEmails,
+                          (v) => setState(() => _invoiceEmails = v)),
+                      _buildEmailSwitch('Estimate', _estimateEmails,
+                          (v) => setState(() => _estimateEmails = v)),
+                      _buildEmailSwitch('Credit Note', _creditNoteEmails,
+                          (v) => setState(() => _creditNoteEmails = v)),
+                      _buildEmailSwitch('Project', _projectEmails,
+                          (v) => setState(() => _projectEmails = v)),
+                      _buildEmailSwitch('Tickets', _ticketEmails,
+                          (v) => setState(() => _ticketEmails = v)),
+                      _buildEmailSwitch('Contract', _contractEmails,
+                          (v) => setState(() => _contractEmails = v)),
+                      _buildEmailSwitch('Task', _taskEmails,
+                          (v) => setState(() => _taskEmails = v)),
                     ],
                   ),
                 ],

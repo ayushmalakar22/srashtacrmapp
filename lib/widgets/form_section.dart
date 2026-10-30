@@ -35,7 +35,8 @@ class FormSection extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, (1 - t) * 16), child: child),
+        child:
+            Transform.translate(offset: Offset(0, (1 - t) * 16), child: child),
       ),
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
@@ -53,7 +54,8 @@ class FormSection extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: cs.primary),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700, color: cs.primary),
                     ),
                   ),
                   if (trailing != null) trailing!,

@@ -38,7 +38,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     }
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   String get _number => _est!['number_formatted']?.toString() ?? '';
 
@@ -52,20 +53,26 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
   }
 
   Future<void> _whatsApp() async {
-    final phone = waNumber((_est!['client_phone'] ?? '').toString(), (_est!['organization']?['country_code'] ?? '').toString());
-    final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(_shareText)}');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) _snack('Could not open WhatsApp');
+    final phone = waNumber((_est!['client_phone'] ?? '').toString(),
+        (_est!['organization']?['country_code'] ?? '').toString());
+    final uri = Uri.parse(
+        'https://wa.me/$phone?text=${Uri.encodeComponent(_shareText)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted)
+      _snack('Could not open WhatsApp');
   }
 
   Future<void> _call() async {
     final phone = (_est!['client_phone'] ?? '').toString().trim();
-    if (!await launchUrl(Uri(scheme: 'tel', path: phone)) && mounted) _snack('Could not open dialer');
+    if (!await launchUrl(Uri(scheme: 'tel', path: phone)) && mounted)
+      _snack('Could not open dialer');
   }
 
   Future<void> _pdf() async {
     final token = await ApiService.getToken();
-    final uri = Uri.parse('${ApiService.baseUrl}/estimate_pdf/${widget.estimateId}?token=$token');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) _snack('Could not open PDF');
+    final uri = Uri.parse(
+        '${ApiService.baseUrl}/estimate_pdf/${widget.estimateId}?token=$token');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted)
+      _snack('Could not open PDF');
   }
 
   Future<void> _delete() async {
@@ -75,7 +82,9 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
         title: const Text('Delete estimate?'),
         content: Text('$_number will be deleted permanently.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -99,24 +108,32 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Convert to invoice?'),
-        content: const Text('A new invoice will be created from this estimate.'),
+        content:
+            const Text('A new invoice will be created from this estimate.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'draft'), child: const Text('Save as draft')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'now'), child: const Text('Convert')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'draft'),
+              child: const Text('Save as draft')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'now'),
+              child: const Text('Convert')),
         ],
       ),
     );
     if (choice == null) return;
     try {
-      final res = await ApiService.convertEstimate(widget.estimateId, draft: choice == 'draft');
+      final res = await ApiService.convertEstimate(widget.estimateId,
+          draft: choice == 'draft');
       if (!mounted) return;
       if (res['status'] == true) {
         final invoiceId = res['data']['invoice_id'].toString();
         _snack('Invoice created');
         await Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => InvoiceViewScreen(invoiceId: invoiceId)),
+          MaterialPageRoute(
+              builder: (_) => InvoiceViewScreen(invoiceId: invoiceId)),
         );
       } else {
         _snack(res['message']?.toString() ?? 'Failed to convert');
@@ -128,7 +145,13 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
 
   Future<void> _changeStatus() async {
     final current = _est!['status'].toString();
-    const all = ['1', '2', '5', '3', '4']; // admin order: Draft, Sent, Expired, Declined, Accepted
+    const all = [
+      '1',
+      '2',
+      '5',
+      '3',
+      '4'
+    ]; // admin order: Draft, Sent, Expired, Declined, Accepted
     final picked = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -140,12 +163,15 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
               padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Mark as', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                child: Text('Mark as',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
             ),
             for (final st in all.where((e) => e != current))
               ListTile(
-                leading: Icon(Icons.circle, size: 14, color: EstimateStatus.of(st).color),
+                leading: Icon(Icons.circle,
+                    size: 14, color: EstimateStatus.of(st).color),
                 title: Text(EstimateStatus.of(st).label),
                 onTap: () => Navigator.pop(ctx, st),
               ),
@@ -155,7 +181,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     );
     if (picked == null) return;
     try {
-      final res = await ApiService.setEstimateStatus(widget.estimateId, int.parse(picked));
+      final res = await ApiService.setEstimateStatus(
+          widget.estimateId, int.parse(picked));
       if (!mounted) return;
       _snack(res['message']?.toString() ?? 'Done');
       if (res['status'] == true) _fetch();
@@ -179,21 +206,32 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
       child: Row(children: [
         Icon(icon, size: 18, color: cs.primary),
         const SizedBox(width: 6),
-        Text(text, style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary, fontSize: 13.5)),
+        Text(text,
+            style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+                fontSize: 13.5)),
       ]),
     );
   }
 
-  Widget _action(IconData icon, String label, Color color, VoidCallback onTap) => Expanded(
+  Widget _action(
+          IconData icon, String label, Color color, VoidCallback onTap) =>
+      Expanded(
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(children: [
-              CircleAvatar(radius: 20, backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, color: color, size: 21)),
+              CircleAvatar(
+                  radius: 20,
+                  backgroundColor: color.withValues(alpha: 0.12),
+                  child: Icon(icon, color: color, size: 21)),
               const SizedBox(height: 6),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600)),
             ]),
           ),
         ),
@@ -205,8 +243,11 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     Widget date(String l, String v) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            Text(v, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            Text(l,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(v,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
           ],
         );
     return AnimatedEntry(
@@ -224,16 +265,31 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(_number, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 15))),
+            Expanded(
+                child: Text(_number,
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15))),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-              child: Text(st.label, style: TextStyle(color: st.color, fontWeight: FontWeight.w700, fontSize: 12.5)),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Text(st.label,
+                  style: TextStyle(
+                      color: st.color,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5)),
             ),
           ]),
           const SizedBox(height: 10),
-          const Text('Total', style: TextStyle(color: Colors.white70, fontSize: 12.5)),
-          Text('\$${_est!['total'] ?? '0.00'}', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800)),
+          const Text('Total',
+              style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+          Text('\$${_est!['total'] ?? '0.00'}',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: date('Date', (_est!['date'] ?? '').toString())),
@@ -249,9 +305,12 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     return _card(
       1,
       child: Row(children: [
-        _action(Icons.chat_rounded, 'WhatsApp', const Color(0xFF25D366), _whatsApp),
-        if (hasPhone) _action(Icons.call_rounded, 'Call', const Color(0xFF1E88E5), _call),
-        _action(Icons.picture_as_pdf_rounded, 'PDF', const Color(0xFFF57C00), _pdf),
+        _action(
+            Icons.chat_rounded, 'WhatsApp', const Color(0xFF25D366), _whatsApp),
+        if (hasPhone)
+          _action(Icons.call_rounded, 'Call', const Color(0xFF1E88E5), _call),
+        _action(
+            Icons.picture_as_pdf_rounded, 'PDF', const Color(0xFFF57C00), _pdf),
       ]),
     );
   }
@@ -264,11 +323,15 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
         child: Row(children: [
           const Icon(Icons.check_circle, color: Colors.teal),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Converted to an invoice', style: TextStyle(fontWeight: FontWeight.w600))),
+          const Expanded(
+              child: Text('Converted to an invoice',
+                  style: TextStyle(fontWeight: FontWeight.w600))),
           TextButton(
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => InvoiceViewScreen(invoiceId: invoiceId.toString())),
+              MaterialPageRoute(
+                  builder: (_) =>
+                      InvoiceViewScreen(invoiceId: invoiceId.toString())),
             ),
             child: const Text('View'),
           ),
@@ -309,12 +372,20 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
           if (i > 0) Divider(height: 20, color: Colors.grey.shade200),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(items[i]['description']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                if ((items[i]['long_description'] ?? '').toString().isNotEmpty)
-                  Text(items[i]['long_description'].toString(), style: TextStyle(fontSize: 12, color: muted)),
-                Text('${items[i]['qty'] ?? '1'} × \$${items[i]['rate'] ?? '0.00'}', style: TextStyle(fontSize: 12.5, color: muted)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(items[i]['description']?.toString() ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if ((items[i]['long_description'] ?? '')
+                        .toString()
+                        .isNotEmpty)
+                      Text(items[i]['long_description'].toString(),
+                          style: TextStyle(fontSize: 12, color: muted)),
+                    Text(
+                        '${items[i]['qty'] ?? '1'} × \$${items[i]['rate'] ?? '0.00'}',
+                        style: TextStyle(fontSize: 12.5, color: muted)),
+                  ]),
             ),
             const SizedBox(width: 12),
             Text(
@@ -330,7 +401,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
   Map<String, double> _taxes(List items) {
     final out = <String, double>{};
     for (final it in items) {
-      final line = (double.tryParse('${it['qty']}') ?? 1) * (double.tryParse('${it['rate']}') ?? 0);
+      final line = (double.tryParse('${it['qty']}') ?? 1) *
+          (double.tryParse('${it['rate']}') ?? 0);
       final taxes = it['taxname'];
       if (taxes is! List) continue;
       for (final t in taxes) {
@@ -346,9 +418,17 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
 
   Widget _row(String l, String v, {bool bold = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(l, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 18 : 14, color: bold ? null : Colors.grey.shade700)),
-          Text(v, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 18 : 14)),
+        child:
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(l,
+              style: TextStyle(
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+                  fontSize: bold ? 18 : 14,
+                  color: bold ? null : Colors.grey.shade700)),
+          Text(v,
+              style: TextStyle(
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+                  fontSize: bold ? 18 : 14)),
         ]),
       );
 
@@ -360,7 +440,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
       child: Column(children: [
         _row('Sub Total', '\$${_est!['subtotal'] ?? '0.00'}'),
         if (discount > 0) _row('Discount', '-\$${_est!['discount_total']}'),
-        for (final t in _taxes(items).entries) _row(t.key, '\$${t.value.toStringAsFixed(2)}'),
+        for (final t in _taxes(items).entries)
+          _row(t.key, '\$${t.value.toStringAsFixed(2)}'),
         if (adjustment != 0) _row('Adjustment', '\$${_est!['adjustment']}'),
         const Divider(height: 20),
         _row('Total', '\$${_est!['total'] ?? '0.00'}', bold: true),
@@ -372,14 +453,20 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     final org = _est!['organization'] as Map<String, dynamic>?;
     if (org == null) return const SizedBox.shrink();
     String f(String k) => (org[k] ?? '').toString();
-    if (f('name').isEmpty && f('address').isEmpty) return const SizedBox.shrink();
-    final cityLine = [f('city'), f('state')].where((e) => e.isNotEmpty).join(', ');
-    final zipLine = [f('country_code'), f('zip')].where((e) => e.isNotEmpty).join(' ');
+    if (f('name').isEmpty && f('address').isEmpty)
+      return const SizedBox.shrink();
+    final cityLine =
+        [f('city'), f('state')].where((e) => e.isNotEmpty).join(', ');
+    final zipLine =
+        [f('country_code'), f('zip')].where((e) => e.isNotEmpty).join(' ');
     return _card(
       5,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _label('From', Icons.business_rounded),
-        if (f('name').isNotEmpty) Text(f('name'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        if (f('name').isNotEmpty)
+          Text(f('name'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         if (f('address').isNotEmpty) Text(f('address')),
         if (cityLine.isNotEmpty) Text(cityLine),
         if (zipLine.isNotEmpty) Text(zipLine),
@@ -389,30 +476,49 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     );
   }
 
-  Widget _addr(String title, IconData icon, String? name, String street, String city, String zip, String state) {
-    final lines = [street, [city, zip].where((e) => e.isNotEmpty).join(' '), state].where((e) => e.trim().isNotEmpty).join('\n');
+  Widget _addr(String title, IconData icon, String? name, String street,
+      String city, String zip, String state) {
+    final lines = [
+      street,
+      [city, zip].where((e) => e.isNotEmpty).join(' '),
+      state
+    ].where((e) => e.trim().isNotEmpty).join('\n');
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _label(title, icon),
-      if (name != null && name.isNotEmpty) Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+      if (name != null && name.isNotEmpty)
+        Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
       if (lines.isNotEmpty) Text(lines),
     ]);
   }
 
   Widget _addresses() {
     String f(String k) => (_est![k] ?? '').toString();
-    final showShip = _est!['include_shipping'] == '1' && _est!['show_shipping_on_estimate'] == '1';
+    final showShip = _est!['include_shipping'] == '1' &&
+        _est!['show_shipping_on_estimate'] == '1';
     return _card(
       6,
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
-          child: _addr('Bill To', Icons.person_pin_circle_outlined, f('company'), f('billing_street'), f('billing_city'),
-              f('billing_zip'), f('billing_state')),
+          child: _addr(
+              'Bill To',
+              Icons.person_pin_circle_outlined,
+              f('company'),
+              f('billing_street'),
+              f('billing_city'),
+              f('billing_zip'),
+              f('billing_state')),
         ),
         if (showShip) ...[
           const SizedBox(width: 12),
           Expanded(
-            child: _addr('Ship To', Icons.local_shipping_outlined, null, f('shipping_street'), f('shipping_city'),
-                f('shipping_zip'), f('shipping_state')),
+            child: _addr(
+                'Ship To',
+                Icons.local_shipping_outlined,
+                null,
+                f('shipping_street'),
+                f('shipping_city'),
+                f('shipping_zip'),
+                f('shipping_state')),
           ),
         ],
       ]),
@@ -426,9 +532,15 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     return _card(
       7,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (note.isNotEmpty) ...[_label('Client Note', Icons.sticky_note_2_outlined), Text(note)],
+        if (note.isNotEmpty) ...[
+          _label('Client Note', Icons.sticky_note_2_outlined),
+          Text(note)
+        ],
         if (note.isNotEmpty && terms.isNotEmpty) const SizedBox(height: 16),
-        if (terms.isNotEmpty) ...[_label('Terms & Conditions', Icons.gavel_rounded), Text(terms)],
+        if (terms.isNotEmpty) ...[
+          _label('Terms & Conditions', Icons.gavel_rounded),
+          Text(terms)
+        ],
       ]),
     );
   }
@@ -436,12 +548,15 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(appBar: AppBar(title: const Text('Loading...')), body: const Center(child: CircularProgressIndicator()));
+      return Scaffold(
+          appBar: AppBar(title: const Text('Loading...')),
+          body: const Center(child: CircularProgressIndicator()));
     }
     if (_est == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Estimate')),
-        body: const EmptyState(icon: Icons.request_quote_outlined, message: 'Estimate not found'),
+        body: const EmptyState(
+            icon: Icons.request_quote_outlined, message: 'Estimate not found'),
       );
     }
     final List items = _est!['items'] ?? [];
@@ -462,7 +577,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AddInvoiceScreen(invoiceId: widget.estimateId, isEstimate: true),
+                  builder: (_) => AddInvoiceScreen(
+                      invoiceId: widget.estimateId, isEstimate: true),
                 ),
               ).then((_) => _fetch()),
             ),

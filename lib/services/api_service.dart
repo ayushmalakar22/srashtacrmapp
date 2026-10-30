@@ -34,6 +34,29 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('server_url');
     _savedBaseUrl = (saved == null || saved.isEmpty) ? null : saved;
+    await _dropStaleSavedUrl(prefs);
+  }
+
+  // A saved LAN IP goes stale when the Mac gets a new IP. If it no longer
+  // answers but the default hostname does, forget the saved one.
+  static Future<void> _dropStaleSavedUrl(SharedPreferences prefs) async {
+    final saved = _savedBaseUrl;
+    if (saved == null || saved == defaultBaseUrl) return;
+    if (await _reachable(saved)) return;
+    if (!await _reachable(defaultBaseUrl)) return;
+    await prefs.remove('server_url');
+    _savedBaseUrl = null;
+  }
+
+  static Future<bool> _reachable(String url) async {
+    try {
+      await http
+          .get(Uri.parse('$url/login'))
+          .timeout(const Duration(seconds: 3));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// "192.168.0.197:8080", "http://host:8080" or the full ".../mobile_api" URL
@@ -76,6 +99,28 @@ class ApiService {
     }
   }
 
+  // Every API call goes through these so a dead server fails after
+  // [_timeout] instead of hanging, and an expired/invalid token (401)
+  // signs the user out via [onUnauthorized].
+  static const Duration _timeout = Duration(seconds: 15);
+
+  /// Set by AuthProvider; called when the server answers 401.
+  static void Function()? onUnauthorized;
+
+  static http.Response _checkAuth(http.Response res) {
+    if (res.statusCode == 401) onUnauthorized?.call();
+    return res;
+  }
+
+  static Future<http.Response> _get(Uri url,
+          {Map<String, String>? headers}) async =>
+      _checkAuth(await http.get(url, headers: headers).timeout(_timeout));
+
+  static Future<http.Response> _post(Uri url,
+          {Map<String, String>? headers, Object? body}) async =>
+      _checkAuth(
+          await http.post(url, headers: headers, body: body).timeout(_timeout));
+
   static Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -99,7 +144,7 @@ class ApiService {
 
   // --- AUTHENTICATION ---
   static Future<Map<String, dynamic>> getPermissions() async {
-    final response = await http.get(
+    final response = await _get(
       Uri.parse('$baseUrl/permissions'),
       headers: await _getHeaders(),
     );
@@ -108,7 +153,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> login(
       String email, String password) async {
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
@@ -119,8 +164,9 @@ class ApiService {
   // --- DASHBOARD ---
   static Future<Map<String, dynamic>> getDashboardStats() async {
     final headers = await _getHeaders();
-    final response =
-        await http.get(Uri.parse('$baseUrl/dashboard'), headers: headers);
+    final response = await http
+        .get(Uri.parse('$baseUrl/dashboard'), headers: headers)
+        .timeout(const Duration(seconds: 10));
     return jsonDecode(response.body);
   }
 
@@ -134,29 +180,28 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getCustomersSummary() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$baseUrl/customers_summary'),
-        headers: headers);
+    final response =
+        await _get(Uri.parse('$baseUrl/customers_summary'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getCustomerFormData() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$baseUrl/customer_form_data'),
-        headers: headers);
+    final response =
+        await _get(Uri.parse('$baseUrl/customer_form_data'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getStaff() async {
     final headers = await _getHeaders();
-    final response =
-        await http.get(Uri.parse('$baseUrl/staff'), headers: headers);
+    final response = await _get(Uri.parse('$baseUrl/staff'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getCustomerAdmins(
       String customerId) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
         Uri.parse('$baseUrl/customer_admins/$customerId'),
         headers: headers);
     return jsonDecode(response.body);
@@ -165,7 +210,7 @@ class ApiService {
   static Future<Map<String, dynamic>> assignCustomerAdmins(
       String customerId, List<String> staffIds) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/customer_admins/$customerId'),
       headers: headers,
       body: jsonEncode({'customer_admins': staffIds}),
@@ -176,7 +221,7 @@ class ApiService {
   static Future<Map<String, dynamic>> addCustomer(
       Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/customers'),
       headers: headers,
       body: jsonEncode(data),
@@ -187,7 +232,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateCustomer(
       Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/customers'), // POST handles update if id is provided
       headers: headers,
       body: jsonEncode(data),
@@ -197,7 +242,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getCustomer(String id) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
       Uri.parse('$baseUrl/customers/$id'),
       headers: headers,
     );
@@ -237,11 +282,12 @@ class ApiService {
       request.files.add(await http.MultipartFile.fromPath(
           'profile_image', data['profile_image_path']));
 
-      final streamedResponse = await request.send();
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse);
       return jsonDecode(response.body);
     } else {
-      final response = await http.post(
+      final response = await _post(
         Uri.parse('$baseUrl/contacts'),
         headers: headers,
         body: jsonEncode(data),
@@ -252,7 +298,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getContacts(String customerId) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
       Uri.parse('$baseUrl/contacts/$customerId'),
       headers: headers,
     );
@@ -267,7 +313,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> deleteContact(String id) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/delete_contact/$id'),
       headers: headers,
     );
@@ -277,7 +323,7 @@ class ApiService {
   static Future<Map<String, dynamic>> changeContactStatus(
       String id, String status) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/change_contact_status/$id/$status'),
       headers: headers,
     );
@@ -286,7 +332,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> deleteCustomer(String id) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       // Using POST to map to the new delete_customer method if DELETE method has issues, but we can also use DELETE.
       Uri.parse('$baseUrl/delete_customer/$id'),
       headers: headers,
@@ -297,7 +343,7 @@ class ApiService {
   static Future<Map<String, dynamic>> changeCustomerStatus(
       String id, String status) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/change_customer_status/$id/$status'),
       headers: headers,
     );
@@ -306,7 +352,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> addCustomerGroup(String name) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/customer_groups'),
       headers: headers,
       body: jsonEncode({'name': name}),
@@ -318,14 +364,14 @@ class ApiService {
   static Future<Map<String, dynamic>> getMasterData() async {
     final headers = await _getHeaders();
     final response =
-        await http.get(Uri.parse('$baseUrl/master_data'), headers: headers);
+        await _get(Uri.parse('$baseUrl/master_data'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getInvoices(
       {int limit = 1000, int offset = 0}) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
         Uri.parse('$baseUrl/invoices?limit=$limit&offset=$offset'),
         headers: headers);
     return jsonDecode(response.body);
@@ -334,21 +380,21 @@ class ApiService {
   static Future<Map<String, dynamic>> getInvoice(String id) async {
     final headers = await _getHeaders();
     final response =
-        await http.get(Uri.parse('$baseUrl/invoices/$id'), headers: headers);
+        await _get(Uri.parse('$baseUrl/invoices/$id'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> getInvoiceFormData() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$baseUrl/invoice_form_data'),
-        headers: headers);
+    final response =
+        await _get(Uri.parse('$baseUrl/invoice_form_data'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> addInvoice(
       Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/invoices'),
       headers: headers,
       body: jsonEncode(data),
@@ -359,7 +405,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateInvoice(
       String id, Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/invoices/$id'),
       headers: headers,
       body: jsonEncode(data),
@@ -374,7 +420,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> deleteInvoice(String id) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/delete_invoice/$id'),
       headers: headers,
     );
@@ -382,9 +428,10 @@ class ApiService {
   }
 
   // --- PAYMENTS ---
-  static Future<Map<String, dynamic>> getInvoicePayments(String invoiceId) async {
+  static Future<Map<String, dynamic>> getInvoicePayments(
+      String invoiceId) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
         Uri.parse('$baseUrl/invoice_payments/$invoiceId'),
         headers: headers);
     return jsonDecode(response.body);
@@ -393,7 +440,7 @@ class ApiService {
   static Future<Map<String, dynamic>> addPayment(
       String invoiceId, Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/add_payment/$invoiceId'),
       headers: headers,
       body: jsonEncode(data),
@@ -403,7 +450,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> deletePayment(String paymentId) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/delete_payment/$paymentId'),
       headers: headers,
     );
@@ -413,7 +460,7 @@ class ApiService {
   // --- SEND ---
   static Future<Map<String, dynamic>> sendInvoice(String invoiceId) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/send_invoice/$invoiceId'),
       headers: headers,
       body: jsonEncode({}),
@@ -424,7 +471,8 @@ class ApiService {
   // --- PENDING LEDGER ---
   static Future<Map<String, dynamic>> getPending() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$baseUrl/pending'), headers: headers);
+    final response =
+        await _get(Uri.parse('$baseUrl/pending'), headers: headers);
     return jsonDecode(response.body);
   }
 
@@ -432,7 +480,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getEstimates(
       {int limit = 1000, int offset = 0}) async {
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _get(
         Uri.parse('$baseUrl/estimates?limit=$limit&offset=$offset'),
         headers: headers);
     return jsonDecode(response.body);
@@ -441,14 +489,14 @@ class ApiService {
   static Future<Map<String, dynamic>> getEstimate(String id) async {
     final headers = await _getHeaders();
     final response =
-        await http.get(Uri.parse('$baseUrl/estimates/$id'), headers: headers);
+        await _get(Uri.parse('$baseUrl/estimates/$id'), headers: headers);
     return jsonDecode(response.body);
   }
 
   static Future<Map<String, dynamic>> convertEstimate(String id,
       {bool draft = false}) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/convert_estimate/$id'),
       headers: headers,
       body: jsonEncode({'save_as_draft': draft}),
@@ -459,7 +507,7 @@ class ApiService {
   static Future<Map<String, dynamic>> setEstimateStatus(
       String id, int status) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/estimate_status/$id/$status'),
       headers: headers,
     );
@@ -469,7 +517,7 @@ class ApiService {
   static Future<Map<String, dynamic>> addEstimate(
       Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/estimates'),
       headers: headers,
       body: jsonEncode(data),
@@ -480,7 +528,7 @@ class ApiService {
   static Future<Map<String, dynamic>> updateEstimate(
       String id, Map<String, dynamic> data) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/estimates/$id'),
       headers: headers,
       body: jsonEncode(data),
@@ -490,7 +538,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> deleteEstimate(String id) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _post(
       Uri.parse('$baseUrl/delete_estimate/$id'),
       headers: headers,
     );

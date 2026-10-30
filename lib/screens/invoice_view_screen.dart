@@ -43,12 +43,14 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         });
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load invoice')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to load invoice')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error loading invoice')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error loading invoice')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -75,11 +77,15 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
 
   Future<void> _shareWhatsApp() async {
     if (_invoice == null) return;
-    final phone = waNumber((_invoice!['client_phone'] ?? '').toString(), (_invoice!['organization']?['country_code'] ?? '').toString());
+    final phone = waNumber((_invoice!['client_phone'] ?? '').toString(),
+        (_invoice!['organization']?['country_code'] ?? '').toString());
     final text = _isPending ? _reminderText : _shareText;
-    final uri = Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
+    final uri =
+        Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')));
     }
   }
 
@@ -87,7 +93,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     final phone = (_invoice?['client_phone'] ?? '').toString().trim();
     if (phone.isEmpty) return;
     if (!await launchUrl(Uri(scheme: 'tel', path: phone)) && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open dialer')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Could not open dialer')));
     }
   }
 
@@ -96,7 +103,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     final email = (_invoice!['client_email'] ?? '').toString();
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('This customer has no contact with an email. Add a contact (with email) under the customer first.'),
+        content: Text(
+            'This customer has no contact with an email. Add a contact (with email) under the customer first.'),
       ));
       return;
     }
@@ -106,8 +114,12 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         title: const Text('Email invoice?'),
         content: Text('It will be emailed to $email.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send')),
         ],
       ),
     );
@@ -115,11 +127,13 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     try {
       final res = await ApiService.sendInvoice(widget.invoiceId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
       if (res['status'] == true) _fetchInvoice();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -128,27 +142,35 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
 
     try {
       final token = await ApiService.getToken();
-      final url = '${ApiService.baseUrl}/invoice_pdf/${widget.invoiceId}?token=$token';
-      
+      final url =
+          '${ApiService.baseUrl}/invoice_pdf/${widget.invoiceId}?token=$token';
+
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not launch browser to download PDF')),
+            const SnackBar(
+                content: Text('Could not launch browser to download PDF')),
           );
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
-  
+
   bool get _canReceivePayment {
     final status = _invoice?['status']?.toString();
-    final balance = double.tryParse(_payments?['balance_due']?.toString() ?? '0') ?? 0;
-    return _payments?['can_create'] == true && status != '2' && status != '5' && balance > 0;
+    final balance =
+        double.tryParse(_payments?['balance_due']?.toString() ?? '0') ?? 0;
+    return _payments?['can_create'] == true &&
+        status != '2' &&
+        status != '5' &&
+        balance > 0;
   }
 
   Future<void> _receivePayment() async {
@@ -164,7 +186,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     );
     if (saved == true) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Payment recorded')));
       }
       _fetchInvoice();
     }
@@ -177,8 +200,12 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         title: const Text('Delete payment?'),
         content: const Text('The invoice balance and status will be updated.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -186,11 +213,13 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     try {
       final res = await ApiService.deletePayment(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message']?.toString() ?? 'Done')));
       if (res['status'] == true) _fetchInvoice();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -208,8 +237,12 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
           _sectionLabel('Payments', icon: Icons.payments_outlined),
           Row(
             children: [
-              Expanded(child: _paySummary('Paid', '\$${p['total_paid']}', Colors.green.shade700)),
-              Expanded(child: _paySummary('Balance Due', '\$${p['balance_due']}', Colors.red.shade700)),
+              Expanded(
+                  child: _paySummary(
+                      'Paid', '\$${p['total_paid']}', Colors.green.shade700)),
+              Expanded(
+                  child: _paySummary('Balance Due', '\$${p['balance_due']}',
+                      Colors.red.shade700)),
             ],
           ),
           if (_canReceivePayment) ...[
@@ -228,11 +261,16 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('\$${r['amount']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text([r['date'], r['mode']].where((e) => e.toString().isNotEmpty).join(' · '),
+                      Text('\$${r['amount']}',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                          [r['date'], r['mode']]
+                              .where((e) => e.toString().isNotEmpty)
+                              .join(' · '),
                           style: TextStyle(fontSize: 12.5, color: muted)),
                       if (r['note'].toString().isNotEmpty)
-                        Text(r['note'].toString(), style: TextStyle(fontSize: 12.5, color: muted)),
+                        Text(r['note'].toString(),
+                            style: TextStyle(fontSize: 12.5, color: muted)),
                     ],
                   ),
                 ),
@@ -254,8 +292,11 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        Text(label,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w800, color: color)),
       ],
     );
   }
@@ -265,7 +306,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       index: index,
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(padding: padding ?? const EdgeInsets.all(16), child: child),
+        child:
+            Padding(padding: padding ?? const EdgeInsets.all(16), child: child),
       ),
     );
   }
@@ -276,8 +318,15 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          if (icon != null) ...[Icon(icon, size: 18, color: cs.primary), const SizedBox(width: 6)],
-          Text(text, style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary, fontSize: 13.5)),
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: cs.primary),
+            const SizedBox(width: 6)
+          ],
+          Text(text,
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: cs.primary,
+                  fontSize: 13.5)),
         ],
       ),
     );
@@ -306,26 +355,41 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
               children: [
                 Expanded(
                   child: Text(invNumber,
-                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 15)),
+                      style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20)),
                   child: Text(st.label,
-                      style: TextStyle(color: st.color, fontWeight: FontWeight.w700, fontSize: 12.5)),
+                      style: TextStyle(
+                          color: st.color,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5)),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            const Text('Total', style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+            const Text('Total',
+                style: TextStyle(color: Colors.white70, fontSize: 12.5)),
             Text(
               '\$${_invoice!['total'] ?? '0.00'}',
-              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _heroDate('Date', (_invoice!['date'] ?? '').toString())),
+                Expanded(
+                    child: _heroDate(
+                        'Date', (_invoice!['date'] ?? '').toString())),
                 if (due.isNotEmpty) Expanded(child: _heroDate('Due', due)),
               ],
             ),
@@ -339,13 +403,17 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _actionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _actionButton(
+      IconData icon, String label, Color color, VoidCallback onTap) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -360,7 +428,9 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
                 child: Icon(icon, color: color, size: 21),
               ),
               const SizedBox(height: 6),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -374,12 +444,16 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          _actionButton(Icons.chat_rounded, 'WhatsApp', const Color(0xFF25D366), _shareWhatsApp),
+          _actionButton(Icons.chat_rounded, 'WhatsApp', const Color(0xFF25D366),
+              _shareWhatsApp),
           if (_invoice!['can_email'] == true)
-            _actionButton(Icons.email_rounded, 'Email', const Color(0xFFEA4335), _sendEmail),
+            _actionButton(Icons.email_rounded, 'Email', const Color(0xFFEA4335),
+                _sendEmail),
           if ((_invoice!['client_phone'] ?? '').toString().trim().isNotEmpty)
-            _actionButton(Icons.call_rounded, 'Call', const Color(0xFF1E88E5), _call),
-          _actionButton(Icons.picture_as_pdf_rounded, 'PDF', const Color(0xFFF57C00), _downloadPdf),
+            _actionButton(
+                Icons.call_rounded, 'Call', const Color(0xFF1E88E5), _call),
+          _actionButton(Icons.picture_as_pdf_rounded, 'PDF',
+              const Color(0xFFF57C00), _downloadPdf),
         ],
       ),
     );
@@ -401,7 +475,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     if (name.isEmpty && address.isEmpty) return const SizedBox.shrink();
 
     final cityLine = [city, state].where((s) => s.isNotEmpty).join(', ');
-    final zipCountryLine = [countryCode, zip].where((s) => s.isNotEmpty).join(' ');
+    final zipCountryLine =
+        [countryCode, zip].where((s) => s.isNotEmpty).join(' ');
 
     return _card(
       2,
@@ -410,7 +485,9 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         children: [
           _sectionLabel('From', icon: Icons.business_rounded),
           if (name.isNotEmpty)
-            Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(name,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           if (address.isNotEmpty) Text(address),
           if (cityLine.isNotEmpty) Text(cityLine),
           if (zipCountryLine.isNotEmpty) Text(zipCountryLine),
@@ -421,7 +498,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     );
   }
 
-  Widget _addressBlock(String title, IconData icon, String? name, String street, String city, String zip, String state) {
+  Widget _addressBlock(String title, IconData icon, String? name, String street,
+      String city, String zip, String state) {
     final lines = [
       street,
       [city, zip].where((s) => s.isNotEmpty).join(' '),
@@ -439,7 +517,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
   }
 
   Widget _buildAddresses() {
-    final showShip = _invoice!['include_shipping'] == '1' && _invoice!['show_shipping_on_invoice'] == '1';
+    final showShip = _invoice!['include_shipping'] == '1' &&
+        _invoice!['show_shipping_on_invoice'] == '1';
     String f(String k) => (_invoice![k] ?? '').toString();
     return _card(
       3,
@@ -447,14 +526,26 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: _addressBlock('Bill To', Icons.person_pin_circle_outlined, f('company'),
-                f('billing_street'), f('billing_city'), f('billing_zip'), f('billing_state')),
+            child: _addressBlock(
+                'Bill To',
+                Icons.person_pin_circle_outlined,
+                f('company'),
+                f('billing_street'),
+                f('billing_city'),
+                f('billing_zip'),
+                f('billing_state')),
           ),
           if (showShip) ...[
             const SizedBox(width: 12),
             Expanded(
-              child: _addressBlock('Ship To', Icons.local_shipping_outlined, null,
-                  f('shipping_street'), f('shipping_city'), f('shipping_zip'), f('shipping_state')),
+              child: _addressBlock(
+                  'Ship To',
+                  Icons.local_shipping_outlined,
+                  null,
+                  f('shipping_street'),
+                  f('shipping_city'),
+                  f('shipping_zip'),
+                  f('shipping_state')),
             ),
           ],
         ],
@@ -491,8 +582,10 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(item['description']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
-              if (long.isNotEmpty) Text(long, style: TextStyle(fontSize: 12, color: muted)),
+              Text(item['description']?.toString() ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (long.isNotEmpty)
+                Text(long, style: TextStyle(fontSize: 12, color: muted)),
               const SizedBox(height: 2),
               Text('${item['qty'] ?? '1'} × \$${item['rate'] ?? '0.00'}',
                   style: TextStyle(fontSize: 12.5, color: muted)),
@@ -500,24 +593,31 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Text('\$${(qty * rate).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        Text('\$${(qty * rate).toStringAsFixed(2)}',
+            style: const TextStyle(fontWeight: FontWeight.w700)),
       ],
     );
   }
 
   Widget _buildTotals(List items) {
-    final discount = double.tryParse(_invoice!['discount_total']?.toString() ?? '0') ?? 0;
-    final adjustment = double.tryParse(_invoice!['adjustment']?.toString() ?? '0') ?? 0;
+    final discount =
+        double.tryParse(_invoice!['discount_total']?.toString() ?? '0') ?? 0;
+    final adjustment =
+        double.tryParse(_invoice!['adjustment']?.toString() ?? '0') ?? 0;
     return _card(
       5,
       child: Column(
         children: [
           _buildTotalRow('Sub Total', '\$${_invoice!['subtotal'] ?? '0.00'}'),
-          if (discount > 0) _buildTotalRow('Discount', '-\$${_invoice!['discount_total']}'),
-          ..._taxBreakdown(items).entries.map((tax) => _buildTotalRow(tax.key, '\$${tax.value.toStringAsFixed(2)}')),
-          if (adjustment != 0) _buildTotalRow('Adjustment', '\$${_invoice!['adjustment']}'),
+          if (discount > 0)
+            _buildTotalRow('Discount', '-\$${_invoice!['discount_total']}'),
+          ..._taxBreakdown(items).entries.map((tax) =>
+              _buildTotalRow(tax.key, '\$${tax.value.toStringAsFixed(2)}')),
+          if (adjustment != 0)
+            _buildTotalRow('Adjustment', '\$${_invoice!['adjustment']}'),
           const Divider(height: 20),
-          _buildTotalRow('Total', '\$${_invoice!['total'] ?? '0.00'}', isBold: true, fontSize: 18),
+          _buildTotalRow('Total', '\$${_invoice!['total'] ?? '0.00'}',
+              isBold: true, fontSize: 18),
         ],
       ),
     );
@@ -558,11 +658,13 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     if (_invoice == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Invoice')),
-        body: const EmptyState(icon: Icons.receipt_long_outlined, message: 'Invoice not found'),
+        body: const EmptyState(
+            icon: Icons.receipt_long_outlined, message: 'Invoice not found'),
       );
     }
 
-    final String invNumber = '${_invoice!['prefix'] ?? ''}${_invoice!['number'] ?? ''}';
+    final String invNumber =
+        '${_invoice!['prefix'] ?? ''}${_invoice!['number'] ?? ''}';
     final List items = _invoice!['items'] ?? [];
 
     return Scaffold(
@@ -631,14 +733,19 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     return breakdown;
   }
 
-  Widget _buildTotalRow(String label, String value, {bool isBold = false, double fontSize = 14}) {
-    final style = TextStyle(fontWeight: isBold ? FontWeight.w800 : FontWeight.w500, fontSize: fontSize);
+  Widget _buildTotalRow(String label, String value,
+      {bool isBold = false, double fontSize = 14}) {
+    final style = TextStyle(
+        fontWeight: isBold ? FontWeight.w800 : FontWeight.w500,
+        fontSize: fontSize);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: style.copyWith(color: isBold ? null : Colors.grey.shade700)),
+          Text(label,
+              style:
+                  style.copyWith(color: isBold ? null : Colors.grey.shade700)),
           Text(value, style: style),
         ],
       ),

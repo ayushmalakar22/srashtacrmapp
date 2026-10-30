@@ -8,9 +8,16 @@ class AuthProvider with ChangeNotifier {
   String _userName = '';
   Map<String, dynamic> _permissions = {};
 
+  AuthProvider() {
+    // Expired/invalid token: the API answers 401 -> back to the login screen.
+    ApiService.onUnauthorized = () {
+      if (_isAuthenticated) logout();
+    };
+  }
+
   bool get isAuthenticated => _isAuthenticated;
   String get userName => _userName;
-  
+
   bool get canCreateCustomer => _permissions['customers']?['create'] == true;
   bool get canEditCustomer => _permissions['customers']?['edit'] == true;
   bool get canDeleteCustomer => _permissions['customers']?['delete'] == true;
@@ -37,7 +44,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
-    
+
     if (token != null && token.isNotEmpty) {
       _isAuthenticated = true;
       _userName = prefs.getString('user_name') ?? 'Staff';
@@ -61,17 +68,18 @@ class AuthProvider with ChangeNotifier {
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await ApiService.login(email, password);
-      
+
       if (response['status'] == true) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', response['data']['token']);
         await prefs.setString('user_name', response['data']['user']['name']);
-        
+
         if (response['data']['user']['permissions'] != null) {
-          await prefs.setString('user_permissions', jsonEncode(response['data']['user']['permissions']));
+          await prefs.setString('user_permissions',
+              jsonEncode(response['data']['user']['permissions']));
           _permissions = response['data']['user']['permissions'];
         }
-        
+
         _isAuthenticated = true;
         _userName = response['data']['user']['name'];
         notifyListeners();
@@ -80,7 +88,11 @@ class AuthProvider with ChangeNotifier {
         return {'success': false, 'message': response['message']};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Cannot reach the server. Tap "Server" below to check the address.'};
+      return {
+        'success': false,
+        'message':
+            'Cannot reach the server. Tap "Server" below to check the address.'
+      };
     }
   }
 

@@ -64,7 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 child: AnimatedEntry(
                   index: 0,
                   child: Column(
@@ -77,17 +78,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white,
                             shape: BoxShape.circle,
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, 6)),
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6)),
                             ],
                           ),
-                          child: Image.asset('assets/icon.png', height: 64, width: 64),
+                          child: Image.asset('assets/icon.png',
+                              height: 64, width: 64),
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Text(
                         'SrashtaSoft CRM',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 4),
                       const Text(
@@ -106,10 +114,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text('Welcome Back',
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w800)),
                                 const SizedBox(height: 4),
                                 Text('Sign in to continue',
-                                    style: TextStyle(color: Colors.grey.shade600)),
+                                    style:
+                                        TextStyle(color: Colors.grey.shade600)),
                                 const SizedBox(height: 22),
                                 TextFormField(
                                   controller: _emailController,
@@ -127,13 +140,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   obscureText: _obscurePassword,
                                   textInputAction: TextInputAction.done,
                                   autofillHints: const [AutofillHints.password],
-                                  onFieldSubmitted: (_) => _isLoading ? null : _login(),
+                                  onFieldSubmitted: (_) =>
+                                      _isLoading ? null : _login(),
                                   decoration: InputDecoration(
                                     labelText: 'Password',
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     suffixIcon: IconButton(
-                                      icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                      icon: Icon(_obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined),
+                                      onPressed: () => setState(() =>
+                                          _obscurePassword = !_obscurePassword),
                                     ),
                                   ),
                                 ),
@@ -146,7 +163,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ? SizedBox(
                                             height: 22,
                                             width: 22,
-                                            child: CircularProgressIndicator(color: cs.onPrimary, strokeWidth: 2),
+                                            child: CircularProgressIndicator(
+                                                color: cs.onPrimary,
+                                                strokeWidth: 2),
                                           )
                                         : const Text('Sign In'),
                                   ),
@@ -158,11 +177,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                       : () async {
                                           await showDialog<bool>(
                                             context: context,
-                                            builder: (_) => const ServerAddressDialog(),
+                                            builder: (_) =>
+                                                const ServerAddressDialog(),
                                           );
                                           if (mounted) setState(() {});
                                         },
-                                  icon: const Icon(Icons.dns_outlined, size: 18),
+                                  icon:
+                                      const Icon(Icons.dns_outlined, size: 18),
                                   label: Text(
                                     'Server: ${Uri.tryParse(ApiService.baseUrl)?.authority ?? ApiService.baseUrl}',
                                     overflow: TextOverflow.ellipsis,

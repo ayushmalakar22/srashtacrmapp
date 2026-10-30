@@ -44,7 +44,8 @@ class SearchableSelectField extends StatelessWidget {
       useSafeArea: true,
       showDragHandle: true,
       constraints: const BoxConstraints(maxWidth: 600),
-      builder: (_) => _SelectSheet(title: label, options: options, selected: value),
+      builder: (_) =>
+          _SelectSheet(title: label, options: options, selected: value),
     );
     if (picked != null) {
       onChanged(picked);
@@ -70,7 +71,9 @@ class SearchableSelectField extends StatelessWidget {
             isEmpty: text == null,
             child: text == null
                 ? null
-                : Text(text, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyLarge),
+                : Text(text,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyLarge),
           ),
         );
       },
@@ -82,7 +85,8 @@ class _SelectSheet extends StatefulWidget {
   final String title;
   final List<SelectOption> options;
   final String? selected;
-  const _SelectSheet({required this.title, required this.options, required this.selected});
+  const _SelectSheet(
+      {required this.title, required this.options, required this.selected});
 
   @override
   State<_SelectSheet> createState() => _SelectSheetState();
@@ -98,7 +102,9 @@ class _SelectSheetState extends State<_SelectSheet> {
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
         ? widget.options
-        : (widget.options.where((o) => o.label.toLowerCase().contains(q)).toList()
+        : (widget.options
+            .where((o) => o.label.toLowerCase().contains(q))
+            .toList()
           // Names that start with the search text come first.
           ..sort((a, b) {
             final aStarts = a.label.toLowerCase().startsWith(q) ? 0 : 1;
@@ -108,14 +114,19 @@ class _SelectSheetState extends State<_SelectSheet> {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
-              child: PopupTitle(widget.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              child: PopupTitle(widget.title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -124,9 +135,12 @@ class _SelectSheetState extends State<_SelectSheet> {
             const Divider(height: 1),
             Expanded(
               child: filtered.isEmpty
-                  ? const Center(child: Text('No results', style: TextStyle(color: Colors.grey)))
+                  ? const Center(
+                      child: Text('No results',
+                          style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
-                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: filtered.length,
                       itemBuilder: (_, i) {
                         final o = filtered[i];
@@ -134,9 +148,16 @@ class _SelectSheetState extends State<_SelectSheet> {
                         return ListTile(
                           dense: true,
                           visualDensity: const VisualDensity(vertical: -2),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                          title: Text(o.label, style: TextStyle(fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
-                          trailing: isSel ? Icon(Icons.check, color: cs.primary) : null,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                          title: Text(o.label,
+                              style: TextStyle(
+                                  fontWeight: isSel
+                                      ? FontWeight.bold
+                                      : FontWeight.normal)),
+                          trailing: isSel
+                              ? Icon(Icons.check, color: cs.primary)
+                              : null,
                           selected: isSel,
                           onTap: () => Navigator.pop(context, o.value),
                         );

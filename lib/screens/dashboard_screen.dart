@@ -40,7 +40,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Provider.of<AuthProvider>(context, listen: false).logout();
+        setState(() {
+          _error = 'Cannot reach the server. Check Wi-Fi and the server '
+              'address (login screen > Server), then pull down to retry.';
+          _isLoading = false;
+        });
       }
     }
   }

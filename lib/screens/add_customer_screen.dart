@@ -15,7 +15,8 @@ class AddCustomerScreen extends StatefulWidget {
   State<AddCustomerScreen> createState() => _AddCustomerScreenState();
 }
 
-class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTickerProviderStateMixin {
+class _AddCustomerScreenState extends State<AddCustomerScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   TabController? _tabController;
   bool _isLoading = true;
@@ -68,7 +69,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: widget.customerId != null ? 2 : 1, vsync: this);
+    _tabController =
+        TabController(length: widget.customerId != null ? 2 : 1, vsync: this);
     _tabController!.addListener(() {
       if (!_tabController!.indexIsChanging) {
         setState(() {}); // Rebuild to hide/show bottom nav bar
@@ -109,7 +111,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           _customerAdmins = response['data'] ?? [];
         });
       }
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       if (mounted) setState(() => _isLoadingAdmins = false);
     }
   }
@@ -129,14 +132,19 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           _cityController.text = data['city'] ?? '';
           _stateController.text = data['state'] ?? '';
           _zipController.text = data['zip'] ?? '';
-          
-          if (data['country'] != null && data['country'].toString().isNotEmpty && data['country'] != '0') {
+
+          if (data['country'] != null &&
+              data['country'].toString().isNotEmpty &&
+              data['country'] != '0') {
             _selectedCountry = data['country'].toString();
           }
-          if (data['default_currency'] != null && data['default_currency'].toString().isNotEmpty && data['default_currency'] != '0') {
+          if (data['default_currency'] != null &&
+              data['default_currency'].toString().isNotEmpty &&
+              data['default_currency'] != '0') {
             _selectedCurrency = data['default_currency'].toString();
           }
-          if (data['default_language'] != null && data['default_language'].toString().isNotEmpty) {
+          if (data['default_language'] != null &&
+              data['default_language'].toString().isNotEmpty) {
             _selectedLanguage = data['default_language'];
           }
 
@@ -144,7 +152,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           _billingCityController.text = data['billing_city'] ?? '';
           _billingStateController.text = data['billing_state'] ?? '';
           _billingZipController.text = data['billing_zip'] ?? '';
-          if (data['billing_country'] != null && data['billing_country'].toString().isNotEmpty && data['billing_country'] != '0') {
+          if (data['billing_country'] != null &&
+              data['billing_country'].toString().isNotEmpty &&
+              data['billing_country'] != '0') {
             _billingCountry = data['billing_country'].toString();
           }
 
@@ -152,17 +162,21 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
           _shippingCityController.text = data['shipping_city'] ?? '';
           _shippingStateController.text = data['shipping_state'] ?? '';
           _shippingZipController.text = data['shipping_zip'] ?? '';
-          if (data['shipping_country'] != null && data['shipping_country'].toString().isNotEmpty && data['shipping_country'] != '0') {
+          if (data['shipping_country'] != null &&
+              data['shipping_country'].toString().isNotEmpty &&
+              data['shipping_country'] != '0') {
             _shippingCountry = data['shipping_country'].toString();
           }
 
           if (data['groups'] != null) {
-            _selectedGroups = (data['groups'] as List).map((g) => g['groupid'].toString()).toList();
+            _selectedGroups = (data['groups'] as List)
+                .map((g) => g['groupid'].toString())
+                .toList();
           }
         });
       }
     } finally {
-      setState(() => _isLoadingCustomer = false);
+      if (mounted) setState(() => _isLoadingCustomer = false);
     }
   }
 
@@ -209,8 +223,11 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
       final billingCity = _billingCityController.text.trim();
       final billingState = _billingStateController.text.trim();
       final billingZip = _billingZipController.text.trim();
-      final billingHasOverride = billingStreet.isNotEmpty || billingCity.isNotEmpty ||
-          billingState.isNotEmpty || billingZip.isNotEmpty || _billingCountry != null;
+      final billingHasOverride = billingStreet.isNotEmpty ||
+          billingCity.isNotEmpty ||
+          billingState.isNotEmpty ||
+          billingZip.isNotEmpty ||
+          _billingCountry != null;
 
       final data = {
         'company': _companyController.text.trim(),
@@ -230,7 +247,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
         'billing_city': billingHasOverride ? billingCity : city,
         'billing_state': billingHasOverride ? billingState : state,
         'billing_zip': billingHasOverride ? billingZip : zip,
-        'billing_country': billingHasOverride ? _billingCountry : _selectedCountry,
+        'billing_country':
+            billingHasOverride ? _billingCountry : _selectedCountry,
         // Shipping
         'shipping_street': _shippingStreetController.text.trim(),
         'shipping_city': _shippingCityController.text.trim(),
@@ -243,20 +261,26 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
         data['id'] = widget.customerId;
       }
 
-      final response = widget.customerId == null 
-        ? await ApiService.addCustomer(data)
-        : await ApiService.updateCustomer(data);
-        
+      final response = widget.customerId == null
+          ? await ApiService.addCustomer(data)
+          : await ApiService.updateCustomer(data);
+
       if (response['status'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(widget.customerId == null ? 'Customer added successfully' : 'Customer updated successfully')),
+            SnackBar(
+                content: Text(widget.customerId == null
+                    ? 'Customer added successfully'
+                    : 'Customer updated successfully')),
           );
-          if (createContact && response['data'] != null && response['data']['customer_id'] != null) {
+          if (createContact &&
+              response['data'] != null &&
+              response['data']['customer_id'] != null) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (_) => AddContactScreen(customerId: response['data']['customer_id'].toString()),
+                builder: (_) => AddContactScreen(
+                    customerId: response['data']['customer_id'].toString()),
               ),
             );
           } else {
@@ -266,7 +290,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response['message'] ?? 'Failed to add customer')),
+            SnackBar(
+                content: Text(response['message'] ?? 'Failed to add customer')),
           );
         }
       }
@@ -284,38 +309,50 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
       _shippingCountry = _billingCountry;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Billing Address copied to Shipping!'), duration: Duration(seconds: 2)),
+      const SnackBar(
+          content: Text('Billing Address copied to Shipping!'),
+          duration: Duration(seconds: 2)),
     );
   }
 
-  Future<void> _showMultiSelectDialog(String title, List<dynamic> items, List<String> selectedValues, Function(List<String>) onConfirm) async {
+  Future<void> _showMultiSelectDialog(String title, List<dynamic> items,
+      List<String> selectedValues, Function(List<String>) onConfirm) async {
     List<String> tempSelected = List.from(selectedValues);
     String query = '';
     await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(builder: (context, setStateDialog) {
             final q = query.trim().toLowerCase();
-            final visible = items.where((item) => item['name'].toString().toLowerCase().contains(q)).toList();
+            final visible = items
+                .where(
+                    (item) => item['name'].toString().toLowerCase().contains(q))
+                .toList();
             return AlertDialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               titlePadding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
               contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               actionsPadding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              title: PopupTitle(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              title: PopupTitle(title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
               content: SizedBox(
                 width: double.maxFinite,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CompactSearchField(onChanged: (v) => setStateDialog(() => query = v)),
+                    CompactSearchField(
+                        onChanged: (v) => setStateDialog(() => query = v)),
                     const SizedBox(height: 4),
                     Flexible(
                       child: visible.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Text('No results', style: TextStyle(color: Colors.grey)),
+                              child: Text('No results',
+                                  style: TextStyle(color: Colors.grey)),
                             )
                           : ListView(
                               shrinkWrap: true,
@@ -323,9 +360,12 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                                 final itemId = item['id'].toString();
                                 return CheckboxListTile(
                                   dense: true,
-                                  visualDensity: const VisualDensity(vertical: -2),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                                  controlAffinity: ListTileControlAffinity.leading,
+                                  visualDensity:
+                                      const VisualDensity(vertical: -2),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
                                   title: Text(item['name']),
                                   value: tempSelected.contains(itemId),
                                   onChanged: (bool? checked) {
@@ -354,25 +394,25 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                     onConfirm(tempSelected);
                     Navigator.pop(context);
                   },
-                  child: Text(tempSelected.isEmpty ? 'Confirm' : 'Confirm (${tempSelected.length})'),
+                  child: Text(tempSelected.isEmpty
+                      ? 'Confirm'
+                      : 'Confirm (${tempSelected.length})'),
                 ),
               ],
             );
-          }
-        );
-      }
-    );
+          });
+        });
   }
+
   Future<void> _showAddGroupDialog() async {
     final nameController = TextEditingController();
     bool isSavingGroup = false;
 
     await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return StatefulBuilder(builder: (context, setStateDialog) {
             return AlertDialog(
               title: const PopupTitle('Add New Customer Group'),
               content: TextField(
@@ -384,57 +424,64 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
               ),
               actions: [
                 TextButton(
-                  onPressed: isSavingGroup ? null : () => Navigator.pop(context),
+                  onPressed:
+                      isSavingGroup ? null : () => Navigator.pop(context),
                   child: const Text('Close'),
                 ),
                 ElevatedButton(
-                  onPressed: isSavingGroup 
-                    ? null 
-                    : () async {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) return;
+                  onPressed: isSavingGroup
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) return;
 
-                        setStateDialog(() => isSavingGroup = true);
-                        try {
-                          final response = await ApiService.addCustomerGroup(name);
-                          if (response['status'] == true) {
-                            final newGroup = response['data'];
-                            setState(() {
-                              _groups.add(newGroup);
-                              _selectedGroups.add(newGroup['id'].toString());
-                            });
-                            if (mounted) Navigator.pop(context);
-                          } else {
+                          setStateDialog(() => isSavingGroup = true);
+                          try {
+                            final response =
+                                await ApiService.addCustomerGroup(name);
+                            if (response['status'] == true) {
+                              final newGroup = response['data'];
+                              setState(() {
+                                _groups.add(newGroup);
+                                _selectedGroups.add(newGroup['id'].toString());
+                              });
+                              if (mounted) Navigator.pop(context);
+                            } else {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(response['message'] ??
+                                          'Failed to add group')),
+                                );
+                              }
+                              setStateDialog(() => isSavingGroup = false);
+                            }
+                          } catch (e) {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(response['message'] ?? 'Failed to add group')),
+                                const SnackBar(
+                                    content: Text('Error adding group')),
                               );
                             }
                             setStateDialog(() => isSavingGroup = false);
                           }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Error adding group')),
-                            );
-                          }
-                          setStateDialog(() => isSavingGroup = false);
-                        }
-                      },
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
-                  child: isSavingGroup 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                  child: isSavingGroup
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
                       : const Text('Save'),
                 ),
               ],
             );
-          }
-        );
-      }
-    );
+          });
+        });
   }
 
   @override
@@ -447,7 +494,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
     final hasAdminsTab = widget.customerId != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.customerId == null ? 'Add New Customer' : (widget.readOnly ? 'View Customer' : 'Edit Customer')),
+        title: Text(widget.customerId == null
+            ? 'Add New Customer'
+            : (widget.readOnly ? 'View Customer' : 'Edit Customer')),
         bottom: hasAdminsTab
             ? TabBar(
                 controller: _tabController,
@@ -461,55 +510,63 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
               )
             : null,
       ),
-      bottomNavigationBar: widget.readOnly || (hasAdminsTab && _tabController?.index == 1)
+      bottomNavigationBar: widget.readOnly ||
+              (hasAdminsTab && _tabController?.index == 1)
           ? const SizedBox.shrink()
           : BottomAppBar(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              children: [
-                if (widget.customerId == null) ...[
-                  Expanded(
-                    flex: 1,
-                    child: OutlinedButton(
-                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
-                      child: const Text('Save'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(true),
-                      child: const Text('Save and create contact'),
-                    ),
-                  ),
-                ] else ...[
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isSaving || _isLoading ? null : () => _saveCustomer(false),
-                      child: const Text('Save'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Form(
-                key: _formKey,
-                child: hasAdminsTab
-                    ? TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildCustomerDetailsTab(),
-                          _buildAdminsTab(),
-                        ],
-                      )
-                    : _buildCustomerDetailsTab(),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    if (widget.customerId == null) ...[
+                      Expanded(
+                        flex: 1,
+                        child: OutlinedButton(
+                          onPressed: _isSaving || _isLoading
+                              ? null
+                              : () => _saveCustomer(false),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _isSaving || _isLoading
+                              ? null
+                              : () => _saveCustomer(true),
+                          child: const Text('Save and create contact'),
+                        ),
+                      ),
+                    ] else ...[
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isSaving || _isLoading
+                              ? null
+                              : () => _saveCustomer(false),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
+            ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: hasAdminsTab
+                  ? TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildCustomerDetailsTab(),
+                        _buildAdminsTab(),
+                      ],
+                    )
+                  : _buildCustomerDetailsTab(),
+            ),
     );
   }
 
@@ -524,16 +581,17 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             title: 'Basic Info',
             icon: Icons.business_outlined,
             children: [
-          TextFormField(
-            controller: _companyController,
-            decoration: _inputDecor('Company *'),
-            validator: (value) => value == null || value.isEmpty ? 'Required' : null,
-          ),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.text,
-            decoration: _inputDecor('Phone'),
-          ),
+              TextFormField(
+                controller: _companyController,
+                decoration: _inputDecor('Company *'),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Required' : null,
+              ),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.text,
+                decoration: _inputDecor('Phone'),
+              ),
             ],
           ),
           FormSection(
@@ -541,51 +599,62 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
             title: 'Address',
             icon: Icons.location_on_outlined,
             children: [
-          TextFormField(
-            controller: _addressController,
-            maxLines: 2,
-            decoration: _inputDecor('Address'),
-          ),
-          TextFormField(
-            controller: _cityController,
-            decoration: _inputDecor('City'),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _stateController,
-                  decoration: _inputDecor('State'),
-                ),
+              TextFormField(
+                controller: _addressController,
+                maxLines: 2,
+                decoration: _inputDecor('Address'),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _zipController,
-                  decoration: _inputDecor('Zip Code'),
-                ),
+              TextFormField(
+                controller: _cityController,
+                decoration: _inputDecor('City'),
               ),
-            ],
-          ),
-          SearchableSelectField(
-            label: 'Country',
-            decoration: _inputDecor('Country'),
-            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
-            value: _selectedCountry,
-            onChanged: (val) => setState(() => _selectedCountry = val),
-          ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stateController,
+                      decoration: _inputDecor('State'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _zipController,
+                      decoration: _inputDecor('Zip Code'),
+                    ),
+                  ),
+                ],
+              ),
+              SearchableSelectField(
+                label: 'Country',
+                decoration: _inputDecor('Country'),
+                options: _countries
+                    .map<SelectOption>((c) => SelectOption(
+                        c['country_id'].toString(), c['short_name'].toString()))
+                    .toList(),
+                value: _selectedCountry,
+                onChanged: (val) => setState(() => _selectedCountry = val),
+              ),
             ],
           ),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              leading: Icon(Icons.tune, color: Theme.of(context).colorScheme.primary),
+              leading: Icon(Icons.tune,
+                  color: Theme.of(context).colorScheme.primary),
               tilePadding: const EdgeInsets.symmetric(horizontal: 16),
               backgroundColor: Colors.white,
               collapsedBackgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE6E8EC))),
-              collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE6E8EC))),
-              title: Text('More Options', style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE6E8EC))),
+              collapsedShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE6E8EC))),
+              title: Text('More Options',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).colorScheme.primary)),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
                 const SizedBox(height: 8),
@@ -606,7 +675,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                     Expanded(
                       child: InkWell(
                         onTap: () {
-                          _showMultiSelectDialog('Select Groups', _groups, _selectedGroups, (newSelection) {
+                          _showMultiSelectDialog(
+                              'Select Groups', _groups, _selectedGroups,
+                              (newSelection) {
                             setState(() => _selectedGroups = newSelection);
                           });
                         },
@@ -616,9 +687,16 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                           ),
                           child: Text(
                             _selectedGroups.isEmpty
-                              ? 'Nothing selected'
-                              : _groups.where((g) => _selectedGroups.contains(g['id'].toString())).map((g) => g['name']).join(', '),
-                            style: TextStyle(color: _selectedGroups.isEmpty ? Colors.grey : Colors.black87),
+                                ? 'Nothing selected'
+                                : _groups
+                                    .where((g) => _selectedGroups
+                                        .contains(g['id'].toString()))
+                                    .map((g) => g['name'])
+                                    .join(', '),
+                            style: TextStyle(
+                                color: _selectedGroups.isEmpty
+                                    ? Colors.grey
+                                    : Colors.black87),
                           ),
                         ),
                       ),
@@ -633,26 +711,31 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                         icon: const Icon(Icons.add),
                         onPressed: _showAddGroupDialog,
                         constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(11), // Adjust to match field height
+                        padding: const EdgeInsets.all(
+                            11), // Adjust to match field height
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 SearchableSelectField(
                   label: 'Currency',
                   decoration: _inputDecor('Currency'),
-                  options: _currencies.map<SelectOption>((c) => SelectOption(c['id'].toString(), '${c['name']} (${c['symbol']})')).toList(),
+                  options: _currencies
+                      .map<SelectOption>((c) => SelectOption(
+                          c['id'].toString(), '${c['name']} (${c['symbol']})'))
+                      .toList(),
                   value: _selectedCurrency,
                   onChanged: (val) => setState(() => _selectedCurrency = val),
                 ),
                 const SizedBox(height: 16),
-
                 SearchableSelectField(
                   label: 'Default Language',
                   decoration: _inputDecor('Default Language'),
-                  options: _languages.map<SelectOption>((l) => SelectOption(l.toString(), l.toString())).toList(),
+                  options: _languages
+                      .map<SelectOption>(
+                          (l) => SelectOption(l.toString(), l.toString()))
+                      .toList(),
                   value: _selectedLanguage,
                   onChanged: (val) => setState(() => _selectedLanguage = val),
                 ),
@@ -676,97 +759,107 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-          const Text('Billing Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-          const Divider(),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _billingStreetController,
-            maxLines: 2,
-            decoration: _inputDecor('Street'),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _billingCityController,
-            decoration: _inputDecor('City'),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _billingStateController,
-                  decoration: _inputDecor('State'),
-                ),
+        const Text('Billing Address',
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _billingStreetController,
+          maxLines: 2,
+          decoration: _inputDecor('Street'),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _billingCityController,
+          decoration: _inputDecor('City'),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _billingStateController,
+                decoration: _inputDecor('State'),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _billingZipController,
-                  decoration: _inputDecor('Zip Code'),
-                ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextFormField(
+                controller: _billingZipController,
+                decoration: _inputDecor('Zip Code'),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SearchableSelectField(
-            label: 'Country',
-            decoration: _inputDecor('Country'),
-            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
-            value: _billingCountry,
-            onChanged: (val) => setState(() => _billingCountry = val),
-          ),
-
-          const SizedBox(height: 32),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Shipping Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-              TextButton.icon(
-                onPressed: _copyBillingToShipping,
-                icon: const Icon(Icons.copy, size: 16),
-                label: const Text('Copy Billing'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SearchableSelectField(
+          label: 'Country',
+          decoration: _inputDecor('Country'),
+          options: _countries
+              .map<SelectOption>((c) => SelectOption(
+                  c['country_id'].toString(), c['short_name'].toString()))
+              .toList(),
+          value: _billingCountry,
+          onChanged: (val) => setState(() => _billingCountry = val),
+        ),
+        const SizedBox(height: 32),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Shipping Address',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue)),
+            TextButton.icon(
+              onPressed: _copyBillingToShipping,
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy Billing'),
+            ),
+          ],
+        ),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _shippingStreetController,
+          maxLines: 2,
+          decoration: _inputDecor('Street'),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _shippingCityController,
+          decoration: _inputDecor('City'),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _shippingStateController,
+                decoration: _inputDecor('State'),
               ),
-            ],
-          ),
-          const Divider(),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _shippingStreetController,
-            maxLines: 2,
-            decoration: _inputDecor('Street'),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _shippingCityController,
-            decoration: _inputDecor('City'),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _shippingStateController,
-                  decoration: _inputDecor('State'),
-                ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextFormField(
+                controller: _shippingZipController,
+                decoration: _inputDecor('Zip Code'),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _shippingZipController,
-                  decoration: _inputDecor('Zip Code'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SearchableSelectField(
-            label: 'Country',
-            decoration: _inputDecor('Country'),
-            options: _countries.map<SelectOption>((c) => SelectOption(c['country_id'].toString(), c['short_name'].toString())).toList(),
-            value: _shippingCountry,
-            onChanged: (val) => setState(() => _shippingCountry = val),
-          ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SearchableSelectField(
+          label: 'Country',
+          decoration: _inputDecor('Country'),
+          options: _countries
+              .map<SelectOption>((c) => SelectOption(
+                  c['country_id'].toString(), c['short_name'].toString()))
+              .toList(),
+          value: _shippingCountry,
+          onChanged: (val) => setState(() => _shippingCountry = val),
+        ),
       ],
     );
   }
@@ -806,7 +899,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 16),
                       ),
                     ),
                   ],
@@ -817,18 +911,24 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
                     ? const Center(child: Text('No admins found.'))
                     : ListView.separated(
                         itemCount: filteredAdmins.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final admin = filteredAdmins[index];
                           return ListTile(
                             leading: CircleAvatar(
-                              child: Text(admin['full_name'] != null && admin['full_name'].toString().isNotEmpty ? admin['full_name'][0].toUpperCase() : 'U'),
+                              child: Text(admin['full_name'] != null &&
+                                      admin['full_name'].toString().isNotEmpty
+                                  ? admin['full_name'][0].toUpperCase()
+                                  : 'U'),
                             ),
                             title: Text(admin['full_name'] ?? 'Unknown'),
-                            subtitle: Text('Assigned on: ${admin['date_assigned'] ?? ''}'),
+                            subtitle: Text(
+                                'Assigned on: ${admin['date_assigned'] ?? ''}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _removeAdmin(admin['staff_id'].toString()),
+                              onPressed: () =>
+                                  _removeAdmin(admin['staff_id'].toString()),
                             ),
                           );
                         },
@@ -845,8 +945,12 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
         title: const Text('Remove Admin'),
         content: const Text('Are you sure you want to remove this admin?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -855,29 +959,39 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
 
     setState(() => _isLoadingAdmins = true);
     try {
-      final List<String> currentAdminIds = _customerAdmins.map((e) => e['staff_id'].toString()).toList();
+      final List<String> currentAdminIds =
+          _customerAdmins.map((e) => e['staff_id'].toString()).toList();
       currentAdminIds.remove(staffIdToRemove);
 
-      final response = await ApiService.assignCustomerAdmins(widget.customerId!, currentAdminIds);
+      final response = await ApiService.assignCustomerAdmins(
+          widget.customerId!, currentAdminIds);
       if (response['status'] == true) {
         _fetchCustomerAdmins(); // Refresh list
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admin removed successfully')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Admin removed successfully')));
         }
       }
     } catch (e) {
       setState(() => _isLoadingAdmins = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to remove admin')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to remove admin')));
       }
     }
   }
 
   Future<void> _handleAssignAdmins() async {
-    final List<String> currentAdminIds = _customerAdmins.map((e) => e['staff_id'].toString()).toList();
-    
+    final List<String> currentAdminIds =
+        _customerAdmins.map((e) => e['staff_id'].toString()).toList();
+
     // Convert staff to items for multi-select
-    final items = _staff.map((s) => {'id': s['staffid'].toString(), 'name': '${s['firstname']} ${s['lastname']}'}).toList();
+    final items = _staff
+        .map((s) => {
+              'id': s['staffid'].toString(),
+              'name': '${s['firstname']} ${s['lastname']}'
+            })
+        .toList();
 
     await _showMultiSelectDialog(
       'Assign Admin',
@@ -886,17 +1000,20 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> with SingleTicker
       (selectedIds) async {
         setState(() => _isLoadingAdmins = true);
         try {
-          final response = await ApiService.assignCustomerAdmins(widget.customerId!, selectedIds);
+          final response = await ApiService.assignCustomerAdmins(
+              widget.customerId!, selectedIds);
           if (response['status'] == true) {
             _fetchCustomerAdmins(); // Refresh
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admins assigned successfully')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Admins assigned successfully')));
             }
           }
         } catch (e) {
           setState(() => _isLoadingAdmins = false);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to assign admins')));
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to assign admins')));
           }
         }
       },

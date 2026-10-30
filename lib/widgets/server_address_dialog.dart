@@ -71,18 +71,25 @@ class _ServerAddressDialogState extends State<ServerAddressDialog> {
           ),
           const SizedBox(height: 8),
           if (_result != null)
-            Text(_result!, style: TextStyle(color: _ok ? Colors.green.shade700 : Colors.red.shade700)),
+            Text(_result!,
+                style: TextStyle(
+                    color: _ok ? Colors.green.shade700 : Colors.red.shade700)),
         ],
       ),
       actions: [
-        TextButton(onPressed: _busy ? null : _reset, child: const Text('Reset')),
+        TextButton(
+            onPressed: _busy ? null : _reset, child: const Text('Reset')),
         TextButton(
           onPressed: _busy ? null : _test,
           child: _busy
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Test'),
         ),
-        FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+        FilledButton(
+            onPressed: _busy ? null : _save, child: const Text('Save')),
       ],
     );
   }

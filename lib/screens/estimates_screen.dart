@@ -37,7 +37,9 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
       final res = await ApiService.getEstimates();
       if (!mounted) return;
       setState(() {
-        _error = res['status'] == true ? null : (res['message']?.toString() ?? 'Failed to load');
+        _error = res['status'] == true
+            ? null
+            : (res['message']?.toString() ?? 'Failed to load');
         if (res['status'] == true) _estimates = res['data'];
       });
     } catch (e) {
@@ -68,14 +70,16 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
         onPressed: () async {
           final id = await Navigator.push<String>(
             context,
-            MaterialPageRoute(builder: (_) => const AddInvoiceScreen(isEstimate: true)),
+            MaterialPageRoute(
+                builder: (_) => const AddInvoiceScreen(isEstimate: true)),
           );
           if (id == null || !context.mounted) return;
           await _fetch();
           if (!context.mounted) return;
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => EstimateViewScreen(estimateId: id)),
+            MaterialPageRoute(
+                builder: (_) => EstimateViewScreen(estimateId: id)),
           ).then((_) => _fetch());
         },
         child: const Icon(Icons.add),
@@ -102,10 +106,13 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
                         child: list.isEmpty
                             ? ListView(children: const [
                                 SizedBox(height: 120),
-                                EmptyState(icon: Icons.request_quote_outlined, message: 'No estimates yet'),
+                                EmptyState(
+                                    icon: Icons.request_quote_outlined,
+                                    message: 'No estimates yet'),
                               ])
                             : ListView.builder(
-                                padding: const EdgeInsets.only(top: 4, bottom: 88),
+                                padding:
+                                    const EdgeInsets.only(top: 4, bottom: 88),
                                 itemCount: list.length,
                                 itemBuilder: (context, i) => _card(i, list[i]),
                               ),
@@ -127,7 +134,9 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
         child: InkWell(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => EstimateViewScreen(estimateId: e['id'].toString())),
+            MaterialPageRoute(
+                builder: (_) =>
+                    EstimateViewScreen(estimateId: e['id'].toString())),
           ).then((_) => _fetch()),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -144,9 +153,11 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(estimateNumber(e['prefix'], e['number']),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                       Text((e['company'] ?? '').toString(),
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                          style: TextStyle(
+                              color: Colors.grey.shade700, fontSize: 13)),
                       const SizedBox(height: 6),
                       Wrap(spacing: 6, runSpacing: 4, children: [
                         _chip(st.label, st.color),
@@ -158,9 +169,12 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('\$${e['total']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('\$${e['total']}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     Text('Exp ${e['expirydate'] ?? '-'}',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 12)),
                   ],
                 ),
               ],
@@ -173,7 +187,11 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
 
   Widget _chip(String text, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-        child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20)),
+        child: Text(text,
+            style: TextStyle(
+                color: color, fontSize: 12, fontWeight: FontWeight.w600)),
       );
 }
