@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'server_finder.dart';
+import 'token_store.dart';
 
 class ApiService {
   // Override per run: flutter run --dart-define=API_BASE_URL=http://<lan-ip>:8080/mobile_api
@@ -34,18 +39,45 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('server_url');
     _savedBaseUrl = (saved == null || saved.isEmpty) ? null : saved;
-    await _dropStaleSavedUrl(prefs);
+    // Check in the background so the app opens at once; calls that fail
+    // meanwhile join this same search.
+    unawaited(rediscover(force: true));
   }
 
-  // A saved LAN IP goes stale when the Mac gets a new IP. If it no longer
-  // answers but the default hostname does, forget the saved one.
-  static Future<void> _dropStaleSavedUrl(SharedPreferences prefs) async {
-    final saved = _savedBaseUrl;
-    if (saved == null || saved == defaultBaseUrl) return;
-    if (await _reachable(saved)) return;
-    if (!await _reachable(defaultBaseUrl)) return;
-    await prefs.remove('server_url');
-    _savedBaseUrl = null;
+  static Future<bool>? _finding;
+  static DateTime? _lastSearch;
+
+  /// The server did not answer: look for it again (saved address, default
+  /// hostname, then a scan of the phone's Wi-Fi network) and remember what
+  /// works. True when the address changed, so the failed call can be retried.
+  /// A search at most every 20 s unless [force]; calls share one search.
+  static Future<bool> rediscover({bool force = false}) {
+    final running = _finding;
+    if (running != null) return running;
+    final last = _lastSearch;
+    if (!force &&
+        last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 20)) {
+      return Future.value(false);
+    }
+    _lastSearch = DateTime.now();
+    return _finding = _rediscover().whenComplete(() => _finding = null);
+  }
+
+  static Future<bool> _rediscover() async {
+    final old = baseUrl;
+    if (await _reachable(old)) return false;
+    final prefs = await SharedPreferences.getInstance();
+    if (old != defaultBaseUrl && await _reachable(defaultBaseUrl)) {
+      await prefs.remove('server_url');
+      _savedBaseUrl = null;
+      return true;
+    }
+    final found = await ServerFinder.find();
+    if (found == null || found == old) return false;
+    await prefs.setString('server_url', found);
+    _savedBaseUrl = found;
+    return true;
   }
 
   static Future<bool> _reachable(String url) async {
@@ -100,30 +132,119 @@ class ApiService {
   }
 
   // Every API call goes through these so a dead server fails after
-  // [_timeout] instead of hanging, and an expired/invalid token (401)
-  // signs the user out via [onUnauthorized].
+  // [_timeout] instead of hanging, an expiring login is renewed quietly, and
+  // a session the server no longer accepts signs the user out.
   static const Duration _timeout = Duration(seconds: 15);
 
-  /// Set by AuthProvider; called when the server answers 401.
+  /// Set by AuthProvider; called when the server has ended the session
+  /// (refresh token expired, revoked, password changed...).
   static void Function()? onUnauthorized;
 
-  static http.Response _checkAuth(http.Response res) {
-    if (res.statusCode == 401) onUnauthorized?.call();
+  // A dead address fails after 5 s (not the OS default) so the search for
+  // the server's new address can start quickly.
+  static final http.Client _client =
+      IOClient(HttpClient()..connectionTimeout = const Duration(seconds: 5));
+
+  static bool _isUnreachable(Object e) =>
+      e is TimeoutException ||
+      e is SocketException ||
+      e is http.ClientException;
+
+  /// Runs [call]; if the server cannot be reached, searches for its new
+  /// address and repeats the call once there. Safe for POSTs too: the retry
+  /// only happens when the address changed, i.e. the first try never arrived.
+  static Future<http.Response> _attempt(
+      Uri url, Future<http.Response> Function(Uri url) call) async {
+    final base = baseUrl;
+    try {
+      return await call(url).timeout(_timeout);
+    } catch (e) {
+      if (!_isUnreachable(e) || !await rediscover()) rethrow;
+      final text = url.toString();
+      if (!text.startsWith(base)) rethrow;
+      return call(Uri.parse(text.replaceFirst(base, baseUrl)))
+          .timeout(_timeout);
+    }
+  }
+
+  /// One API call. A 401 means the access token ran out: renew it with the
+  /// refresh token and repeat the call once. Only when the server refuses the
+  /// renewal too is the user signed out - being offline never logs anyone out.
+  static Future<http.Response> _send(
+    Uri url,
+    Map<String, String>? headers,
+    Future<http.Response> Function(Uri url, Map<String, String>? headers) call,
+  ) async {
+    final res = await _attempt(url, (u) => call(u, headers));
+    if (res.statusCode != 401 || headers?['Authorization'] == null) return res;
+
+    final renewed = await refreshSession(); // throws when unreachable
+    if (renewed) {
+      final fresh = {
+        ...headers!,
+        'Authorization': 'Bearer ${await TokenStore.access}',
+      };
+      final again = await _attempt(url, (u) => call(u, fresh));
+      if (again.statusCode != 401) return again;
+    }
+    onUnauthorized?.call();
     return res;
   }
 
-  static Future<http.Response> _get(Uri url,
-          {Map<String, String>? headers}) async =>
-      _checkAuth(await http.get(url, headers: headers).timeout(_timeout));
+  static Future<http.Response> _get(Uri url, {Map<String, String>? headers}) =>
+      _send(url, headers, (u, h) => _client.get(u, headers: h));
 
   static Future<http.Response> _post(Uri url,
-          {Map<String, String>? headers, Object? body}) async =>
-      _checkAuth(
-          await http.post(url, headers: headers, body: body).timeout(_timeout));
+          {Map<String, String>? headers, Object? body}) =>
+      _send(url, headers, (u, h) => _client.post(u, headers: h, body: body));
+
+  // --- SESSION ---
+  static Future<bool>? _refreshing;
+
+  /// Swaps the refresh token for a new access + refresh token. True when
+  /// renewed, false when the server refused (session over). Throws when the
+  /// server cannot be reached or errors, so the caller keeps the session.
+  /// Concurrent callers share one request (refresh tokens are single use).
+  static Future<bool> refreshSession() =>
+      _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+
+  static Future<bool> _doRefresh() async {
+    final refresh = await TokenStore.refresh;
+    if (refresh == null) return false;
+    final res = await _attempt(
+      Uri.parse('$baseUrl/refresh'),
+      (u) => _client.post(u,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh_token': refresh})),
+    );
+    if (res.statusCode == 401) {
+      await TokenStore.clear();
+      return false;
+    }
+    final body = res.statusCode == 200 ? jsonDecode(res.body) : null;
+    final data = body is Map ? body['data'] : null;
+    if (body is Map && body['status'] == true && data is Map) {
+      await TokenStore.save(
+          access: data['token'], refresh: data['refresh_token']);
+      return true;
+    }
+    throw http.ClientException(
+        'Could not renew the session (${res.statusCode})');
+  }
+
+  /// Renews the access token ahead of time when it is about to run out, so
+  /// requests do not need a failed first try.
+  static Future<void> _renewIfExpiring() async {
+    if (!await TokenStore.hasSession) return;
+    if (!TokenStore.needsRefresh(await TokenStore.access)) return;
+    try {
+      await refreshSession();
+    } catch (_) {} // offline: the request itself reports it
+  }
 
   static Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
+    await _renewIfExpiring();
+    final token = await TokenStore.access;
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -136,10 +257,29 @@ class ApiService {
     return _getHeaders();
   }
 
-  /// Get just the raw token string
+  /// A current access token (renewed first when it is about to expire).
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('jwt_token');
+    await _renewIfExpiring();
+    return TokenStore.access;
+  }
+
+  /// Ends this device's session on the server (best effort), then forgets
+  /// the tokens here.
+  static Future<void> endSession() async {
+    final refresh = await TokenStore.refresh;
+    final access = await TokenStore.access;
+    await TokenStore.clear();
+    if (refresh == null) return;
+    try {
+      await _client
+          .post(Uri.parse('$baseUrl/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                if (access != null) 'Authorization': 'Bearer $access',
+              },
+              body: jsonEncode({'refresh_token': refresh}))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {} // offline: the refresh token simply expires on its own
   }
 
   // --- AUTHENTICATION ---
@@ -158,7 +298,76 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
+    final json = jsonDecode(response.body);
+    final data = json is Map ? json['data'] : null;
+    if (json is Map && json['status'] == true && data is Map) {
+      await TokenStore.save(
+          access: data['token'], refresh: data['refresh_token']);
+    }
+    return json;
+  }
+
+  /// Full address of a file the server hosts (e.g. a profile photo), built on
+  /// the current server address so it follows the server when its IP changes.
+  static String fileUrl(String path) {
+    final origin = baseUrl.replaceFirst(RegExp(r'/mobile_api/?$'), '');
+    return '$origin/${path.replaceFirst(RegExp(r'^/+'), '')}';
+  }
+
+  // --- MY PROFILE ---
+  static Future<Map<String, dynamic>> getProfile() async {
+    final response =
+        await _get(Uri.parse('$baseUrl/profile'), headers: await _getHeaders());
     return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> updateProfile(
+      Map<String, dynamic> data) async {
+    final response = await _post(
+      Uri.parse('$baseUrl/update_profile'),
+      headers: await _getHeaders(),
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  /// Uploads [filePath] (a JPG or PNG) as the staff photo.
+  static Future<Map<String, dynamic>> uploadProfileImage(
+      String filePath) async {
+    final headers = await _getHeaders();
+    headers.remove('Content-Type'); // multipart sets its own
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$baseUrl/profile_image'))
+      ..headers.addAll(headers)
+      ..files.add(await http.MultipartFile.fromPath('profile_image', filePath));
+    final res = await http.Response.fromStream(
+        await _client.send(request).timeout(const Duration(seconds: 60)));
+    if (res.statusCode == 401) onUnauthorized?.call();
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> removeProfileImage() async {
+    final response = await _post(Uri.parse('$baseUrl/remove_profile_image'),
+        headers: await _getHeaders());
+    return jsonDecode(response.body);
+  }
+
+  /// Other devices are signed out by the server; this one gets fresh tokens.
+  static Future<Map<String, dynamic>> changePassword(
+      String oldPassword, String newPassword) async {
+    final response = await _post(
+      Uri.parse('$baseUrl/change_password'),
+      headers: await _getHeaders(),
+      body: jsonEncode(
+          {'old_password': oldPassword, 'new_password': newPassword}),
+    );
+    final json = jsonDecode(response.body);
+    final data = json is Map ? json['data'] : null;
+    if (json is Map && json['status'] == true && data is Map) {
+      await TokenStore.save(
+          access: data['token'], refresh: data['refresh_token']);
+    }
+    return json;
   }
 
   // --- DASHBOARD ---
@@ -172,10 +381,46 @@ class ApiService {
   }
 
   // --- CUSTOMERS ---
-  static Future<Map<String, dynamic>> getCustomers({String search = ''}) async {
+  /// One page of customers; the API answers `{data, total}`. [status] is
+  /// '1' (active) or '0' (inactive).
+  static Future<Map<String, dynamic>> getCustomers({
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+    String? status,
+    String? group,
+    String? sort,
+  }) async {
     final headers = await _getHeaders();
-    final response = await http
-        .get(Uri.parse('$baseUrl/customers?search=$search'), headers: headers);
+    final uri = Uri.parse('$baseUrl/customers').replace(queryParameters: {
+      if (group != null) 'group': group,
+      if (sort != null) 'sort': sort,
+      'limit': '$limit',
+      'offset': '$offset',
+      if (search.isNotEmpty) 'search': search,
+      if (status != null) 'status': status,
+    });
+    final response = await _get(uri, headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  /// Customers for the invoice/estimate customer picker (address + currency
+  /// included). With [id] just that customer, even if inactive.
+  static Future<Map<String, dynamic>> getCustomerOptions({
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+    String? id,
+  }) async {
+    final headers = await _getHeaders();
+    final uri =
+        Uri.parse('$baseUrl/customer_options').replace(queryParameters: {
+      'limit': '$limit',
+      'offset': '$offset',
+      if (search.isNotEmpty) 'search': search,
+      if (id != null) 'id': id,
+    });
+    final response = await _get(uri, headers: headers);
     return jsonDecode(response.body);
   }
 
@@ -369,12 +614,31 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  static Future<Map<String, dynamic>> getInvoices(
-      {int limit = 1000, int offset = 0}) async {
+  /// One page of invoices; the API answers `{data, total}`. [status] is the
+  /// effective status (4 = overdue incl. past-due unpaid), [from]/[to] are
+  /// `yyyy-MM-dd`.
+  static Future<Map<String, dynamic>> getInvoices({
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+    String? status,
+    String? from,
+    String? to,
+    String? client,
+    String? sort,
+  }) async {
     final headers = await _getHeaders();
-    final response = await _get(
-        Uri.parse('$baseUrl/invoices?limit=$limit&offset=$offset'),
-        headers: headers);
+    final uri = Uri.parse('$baseUrl/invoices').replace(queryParameters: {
+      if (sort != null) 'sort': sort,
+      'limit': '$limit',
+      'offset': '$offset',
+      if (search.isNotEmpty) 'search': search,
+      if (status != null) 'status': status,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+      if (client != null) 'client': client,
+    });
+    final response = await _get(uri, headers: headers);
     return jsonDecode(response.body);
   }
 
@@ -450,9 +714,21 @@ class ApiService {
   }
 
   // --- ITEMS ---
-  static Future<Map<String, dynamic>> getItems() async {
+  /// One page of items: `{data: {items, taxes, currency_symbol}, total}`.
+  static Future<Map<String, dynamic>> getItems({
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+    String? id, // just this item
+  }) async {
     final headers = await _getHeaders();
-    final response = await _get(Uri.parse('$baseUrl/items'), headers: headers);
+    final uri = Uri.parse('$baseUrl/items').replace(queryParameters: {
+      'limit': '$limit',
+      'offset': '$offset',
+      if (id != null) 'id': id,
+      if (search.isNotEmpty) 'search': search,
+    });
+    final response = await _get(uri, headers: headers);
     return jsonDecode(response.body);
   }
 
@@ -496,21 +772,49 @@ class ApiService {
   }
 
   // --- PENDING LEDGER ---
-  static Future<Map<String, dynamic>> getPending({String? currency}) async {
+  /// Pending money: totals for everyone plus one page of customers
+  /// (`data.customers`, `total` = customers matching [search]).
+  static Future<Map<String, dynamic>> getPending({
+    String? currency,
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+  }) async {
     final headers = await _getHeaders();
-    final q = currency == null ? '' : '?currency=$currency';
-    final response =
-        await _get(Uri.parse('$baseUrl/pending$q'), headers: headers);
+    final uri = Uri.parse('$baseUrl/pending').replace(queryParameters: {
+      'limit': '$limit',
+      'offset': '$offset',
+      if (currency != null) 'currency': currency,
+      if (search.isNotEmpty) 'search': search,
+    });
+    final response = await _get(uri, headers: headers);
     return jsonDecode(response.body);
   }
 
   // --- ESTIMATES ---
-  static Future<Map<String, dynamic>> getEstimates(
-      {int limit = 1000, int offset = 0}) async {
+  /// One page of estimates; same query options as [getInvoices].
+  static Future<Map<String, dynamic>> getEstimates({
+    int limit = 30,
+    int offset = 0,
+    String search = '',
+    String? status,
+    String? from,
+    String? to,
+    String? client,
+    String? sort,
+  }) async {
     final headers = await _getHeaders();
-    final response = await _get(
-        Uri.parse('$baseUrl/estimates?limit=$limit&offset=$offset'),
-        headers: headers);
+    final uri = Uri.parse('$baseUrl/estimates').replace(queryParameters: {
+      if (sort != null) 'sort': sort,
+      'limit': '$limit',
+      'offset': '$offset',
+      if (search.isNotEmpty) 'search': search,
+      if (status != null) 'status': status,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+      if (client != null) 'client': client,
+    });
+    final response = await _get(uri, headers: headers);
     return jsonDecode(response.body);
   }
 

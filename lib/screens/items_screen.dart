@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
+import '../utils/paged_list.dart';
 import '../widgets/item_sheet.dart';
+import '../widgets/paged_footer.dart';
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -14,73 +17,69 @@ class ItemsScreen extends StatefulWidget {
 }
 
 class _ItemsScreenState extends State<ItemsScreen> {
+  late final PagedList _list = PagedList(_fetchPage);
   final _searchController = TextEditingController();
-  List _items = [];
+  final _scroll = ScrollController();
+  Timer? _debounce;
   List _taxes = [];
   String _symbol = '\$';
-  bool _isLoading = true;
-  String? _error;
+
+  /// The API wraps the rows with the tax list and currency; keep those and
+  /// hand just the rows to the paged list.
+  Future<Map<String, dynamic>> _fetchPage(int offset, int limit) async {
+    final res = await ApiService.getItems(
+        offset: offset, limit: limit, search: _searchController.text.trim());
+    if (res['status'] != true) return res;
+    final data = res['data'];
+    _taxes = data['taxes'] ?? [];
+    _symbol = (data['currency_symbol'] ?? '\$').toString();
+    return {'status': true, 'data': data['items'], 'total': res['total']};
+  }
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() => setState(() {}));
-    _fetch();
+    _list.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _list.refresh();
+    _searchController.addListener(() {
+      setState(() {}); // show/hide the clear button right away
+      _debounce?.cancel();
+      _debounce =
+          Timer(const Duration(milliseconds: 350), () => _list.refresh());
+    });
+    _scroll.addListener(() {
+      if (_scroll.position.extentAfter < 300) _list.loadMore();
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
+    _scroll.dispose();
+    _list.dispose();
     super.dispose();
   }
 
-  Future<void> _fetch() async {
-    try {
-      final res = await ApiService.getItems();
-      if (!mounted) return;
-      setState(() {
-        if (res['status'] == true) {
-          _items = res['data']['items'] ?? [];
-          _taxes = res['data']['taxes'] ?? [];
-          _symbol = (res['data']['currency_symbol'] ?? '\$').toString();
-          _error = null;
-        } else {
-          _error = res['message']?.toString() ?? 'Failed to load items';
-        }
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error =
-            'Cannot reach the server. Check Wi-Fi and pull down to retry.');
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  List get _filtered {
-    final q = _searchController.text.trim().toLowerCase();
-    if (q.isEmpty) return _items;
-    return _items.where((i) {
-      return '${i['description']} ${i['unit'] ?? ''}'.toLowerCase().contains(q);
-    }).toList();
-  }
+  /// Reload quietly, keeping the rows and scroll position.
+  Future<void> _fetch() => _list.refresh(silent: true);
 
   Future<void> _openSheet([Map<String, dynamic>? item]) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<Object>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) =>
-          ItemSheet(
+      builder: (_) => ItemSheet(
           item: item,
           taxes: _taxes,
           symbol: _symbol,
           canDelete: auth.canDeleteItem),
     );
-    if (saved == true) _fetch();
+    if (saved != null) _fetch();
   }
 
   Widget _chip(String text, Color color) => Container(
@@ -110,7 +109,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: canEdit ? () => _openSheet(Map<String, dynamic>.from(item)) : null,
+          onTap: canEdit
+              ? () => _openSheet(Map<String, dynamic>.from(item))
+              : null,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -160,7 +161,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
-    final list = _filtered;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Items')),
@@ -189,35 +189,38 @@ class _ItemsScreenState extends State<ItemsScreen> {
             ),
           ),
           Expanded(
-            child: _isLoading
+            child: _list.loading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _fetch,
-                    child: list.isEmpty
+                    child: _list.items.isEmpty
                         ? ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: [
                               SizedBox(
                                 height: 300,
-                                child: _error != null
+                                child: _list.error != null
                                     ? EmptyState(
                                         icon: Icons.cloud_off_outlined,
-                                        message: _error!)
+                                        message: _list.error!,
+                                        actionLabel: 'Retry',
+                                        onAction: () => _list.refresh())
                                     : EmptyState(
                                         icon: Icons.inventory_2_outlined,
-                                        message: _items.isEmpty
+                                        message: _searchController.text.isEmpty
                                             ? 'No items yet'
                                             : 'No items found'),
                               ),
                             ],
                           )
                         : ListView.builder(
+                            controller: _scroll,
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding:
-                                const EdgeInsets.only(top: 4, bottom: 88),
-                            itemCount: list.length,
-                            itemBuilder: (_, i) =>
-                                _card(list[i], i, auth.canEditItem),
+                            padding: const EdgeInsets.only(top: 4, bottom: 88),
+                            itemCount: _list.items.length + 1,
+                            itemBuilder: (_, i) => i == _list.items.length
+                                ? PagedFooter(list: _list)
+                                : _card(_list.items[i], i, auth.canEditItem),
                           ),
                   ),
           ),

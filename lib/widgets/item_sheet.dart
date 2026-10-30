@@ -57,7 +57,10 @@ class _ItemSheetState extends State<ItemSheet> {
       final res = await call();
       if (!mounted) return;
       if (res['status'] == true) {
-        Navigator.of(context).pop(true);
+        // a new item pops its id so the caller can select it right away
+        Navigator.of(context).pop(!_isEdit && res['data']?['item_id'] != null
+            ? res['data']['item_id']
+            : true);
       } else {
         setState(() => _saving = false);
         _toast(res['message']?.toString() ?? fallbackError);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/server_finder.dart';
 import 'popup_title.dart';
 
 /// Lets the user point the app at the CRM server (e.g. the Mac's current IP)
@@ -41,6 +42,27 @@ class _ServerAddressDialogState extends State<ServerAddressDialog> {
     });
   }
 
+  /// Looks for the server on this Wi-Fi network and fills in what it finds.
+  Future<void> _find() async {
+    setState(() {
+      _busy = true;
+      _result = 'Searching this Wi-Fi network...';
+      _ok = true;
+    });
+    final url = await ServerFinder.find();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _ok = url != null;
+      _result = url == null
+          ? 'No server found. Is Docker running and the phone on the same Wi-Fi?'
+          : 'Found it';
+      if (url != null) {
+        _controller.text = url.replaceFirst(RegExp(r'/mobile_api$'), '');
+      }
+    });
+  }
+
   Future<void> _save() async {
     await ApiService.setServerUrl(_controller.text);
     if (mounted) Navigator.pop(context, true);
@@ -77,6 +99,7 @@ class _ServerAddressDialogState extends State<ServerAddressDialog> {
         ],
       ),
       actions: [
+        TextButton(onPressed: _busy ? null : _find, child: const Text('Find')),
         TextButton(
             onPressed: _busy ? null : _reset, child: const Text('Reset')),
         TextButton(

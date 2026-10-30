@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../screens/estimates_screen.dart';
 import '../screens/items_screen.dart';
 import '../screens/pending_screen.dart';
+import '../screens/profile_screen.dart';
+import 'staff_avatar.dart';
 
 /// Side menu for everything that is not on the bottom bar. A new module
 /// (expenses, credit notes, ...) is one more [_DrawerTile] below.
@@ -24,46 +26,54 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       child: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(
-                20, MediaQuery.of(context).padding.top + 24, 20, 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [cs.primary, const Color(0xFF1A5FD0)],
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: Colors.white.withValues(alpha: 0.2),
-                  child: Text(
-                    name[0].toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold),
-                  ),
+          InkWell(
+            onTap: () => _open(context, const ProfileScreen()),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                  16, MediaQuery.of(context).padding.top + 14, 12, 14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [cs.primary, const Color(0xFF1A5FD0)],
                 ),
-                const SizedBox(height: 12),
-                Text(name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                const Text('SrashtaSoft CRM',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-              ],
+              ),
+              child: Row(
+                children: [
+                  StaffAvatar(
+                    name: name,
+                    path: auth.avatarPath,
+                    radius: 24,
+                    background: Colors.white.withValues(alpha: 0.2),
+                    foreground: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                        const Text('View & edit profile',
+                            style: TextStyle(
+                                color: Colors.white70, fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.white70),
+                ],
+              ),
             ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
               children: [
                 const _SectionLabel('SALES'),
                 _DrawerTile(
@@ -81,7 +91,7 @@ class AppDrawer extends StatelessWidget {
                   onTap: () => _open(context, const PendingScreen()),
                 ),
                 if (auth.canViewItems) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   const _SectionLabel('CATALOG'),
                   _DrawerTile(
                     icon: Icons.inventory_2_outlined,
@@ -121,10 +131,10 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+      padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
       child: Text(text,
           style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               letterSpacing: 1.1,
               fontWeight: FontWeight.w700,
               color: Colors.grey.shade600)),
@@ -153,33 +163,33 @@ class _DrawerTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 22),
+              child: Icon(icon, color: color, size: 19),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
                       style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                          fontSize: 14.5, fontWeight: FontWeight.w600)),
                   if (subtitle != null)
                     Text(subtitle!,
                         style: TextStyle(
-                            fontSize: 12.5, color: Colors.grey.shade600)),
+                            fontSize: 11.5, color: Colors.grey.shade600)),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade400),
           ],
         ),
       ),

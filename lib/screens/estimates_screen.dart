@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/estimate_status.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
+import '../utils/paged_list.dart';
+import '../widgets/list_filters.dart';
+import '../widgets/paged_footer.dart';
+import '../widgets/sort_button.dart';
 import 'add_invoice_screen.dart';
 import 'estimate_view_screen.dart';
 
@@ -14,57 +19,88 @@ class EstimatesScreen extends StatefulWidget {
 }
 
 class _EstimatesScreenState extends State<EstimatesScreen> {
-  List<dynamic> _estimates = [];
-  bool _isLoading = true;
-  String? _error;
+  late final PagedList _list =
+      PagedList((offset, limit) => ApiService.getEstimates(
+            offset: offset,
+            limit: limit,
+            search: _search.text.trim(),
+            status: _statusFilter,
+            from: _dateFilter.fromYmd,
+            to: _dateFilter.toYmd,
+            sort: _sort,
+          ));
   final _search = TextEditingController();
+  final _scroll = ScrollController();
+  Timer? _debounce;
+  String? _statusFilter;
+  DateFilter _dateFilter = DateFilter.all;
+  String _sort = 'newest';
+
+  static const _sortOptions = [
+    SortOption('newest', 'Newest first'),
+    SortOption('oldest', 'Oldest first'),
+    SortOption('amount', 'Highest amount'),
+    SortOption('expiry', 'Expiry date (earliest)'),
+  ];
+
+  bool get _hasFilters =>
+      _statusFilter != null || _dateFilter.isActive || _search.text.isNotEmpty;
+
+  void _clearFilters() {
+    _statusFilter = null;
+    _dateFilter = DateFilter.all;
+    _debounce?.cancel();
+    _search.clear(); // its listener refreshes the list
+    _applyFilters();
+  }
+
+  static const _statusOptions = [
+    FilterOption(null, 'All'),
+    FilterOption('1', 'Draft'),
+    FilterOption('2', 'Sent'),
+    FilterOption('4', 'Accepted'),
+    FilterOption('3', 'Declined'),
+    FilterOption('5', 'Expired'),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _fetch();
-    _search.addListener(() => setState(() {}));
+    _list.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _list.refresh();
+    _search.addListener(() {
+      setState(() {}); // show/hide the clear button right away
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 350), _applyFilters);
+    });
+    _scroll.addListener(() {
+      if (_scroll.position.extentAfter < 300) _list.loadMore();
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
+    _scroll.dispose();
+    _list.dispose();
     super.dispose();
   }
 
-  Future<void> _fetch() async {
-    try {
-      final res = await ApiService.getEstimates();
-      if (!mounted) return;
-      setState(() {
-        _error = res['status'] == true
-            ? null
-            : (res['message']?.toString() ?? 'Failed to load');
-        if (res['status'] == true) _estimates = res['data'];
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Error loading estimates');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  /// Search / status / date changed: start again at page 1.
+  void _applyFilters() => _list.refresh();
 
-  List<dynamic> get _filtered {
-    final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return _estimates;
-    return _estimates.where((e) {
-      final num = estimateNumber(e['prefix'], e['number']).toLowerCase();
-      return num.contains(q) ||
-          (e['company'] ?? '').toString().toLowerCase().contains(q) ||
-          (e['total'] ?? '').toString().contains(q);
-    }).toList();
-  }
+  /// Reload quietly, keeping the rows (and scroll position) on screen.
+  Future<void> _fetch() => _list.refresh(silent: true);
 
   @override
   Widget build(BuildContext context) {
-    final list = _filtered;
     return Scaffold(
-      appBar: AppBar(title: const Text('Estimates')),
+      appBar: AppBar(
+        title: const Text('Estimates'),
+      ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'New Estimate',
         onPressed: () async {
@@ -96,25 +132,60 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
               ),
             ),
           ),
+          ListFilters(
+            statuses: _statusOptions,
+            sortOptions: _sortOptions,
+            sort: _sort,
+            onSort: (v) {
+              _sort = v;
+              _applyFilters();
+            },
+            status: _statusFilter,
+            onStatus: (v) {
+              _statusFilter = v;
+              _applyFilters();
+            },
+            dateFilter: _dateFilter,
+            onDate: (d) {
+              _dateFilter = d;
+              _applyFilters();
+            },
+          ),
+          const SizedBox(height: 4),
           Expanded(
-            child: _isLoading
+            child: _list.loading
                 ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? EmptyState(icon: Icons.error_outline, message: _error!)
+                : _list.error != null
+                    ? EmptyState(
+                        icon: Icons.cloud_off_outlined,
+                        message: _list.error!,
+                        actionLabel: 'Retry',
+                        onAction: _applyFilters)
                     : RefreshIndicator(
                         onRefresh: _fetch,
-                        child: list.isEmpty
-                            ? ListView(children: const [
-                                SizedBox(height: 120),
+                        child: _list.items.isEmpty
+                            ? ListView(children: [
+                                const SizedBox(height: 120),
                                 EmptyState(
                                     icon: Icons.request_quote_outlined,
-                                    message: 'No estimates yet'),
+                                    message: _hasFilters
+                                        ? 'No estimates match these filters'
+                                        : 'No estimates yet',
+                                    actionLabel:
+                                        _hasFilters ? 'Clear filters' : null,
+                                    onAction:
+                                        _hasFilters ? _clearFilters : null),
                               ])
                             : ListView.builder(
+                                controller: _scroll,
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 padding:
                                     const EdgeInsets.only(top: 4, bottom: 88),
-                                itemCount: list.length,
-                                itemBuilder: (context, i) => _card(i, list[i]),
+                                itemCount: _list.items.length + 1,
+                                itemBuilder: (context, i) =>
+                                    i == _list.items.length
+                                        ? PagedFooter(list: _list)
+                                        : _card(i, _list.items[i]),
                               ),
                       ),
           ),

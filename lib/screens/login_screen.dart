@@ -18,6 +18,20 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  @override
+  void initState() {
+    super.initState();
+    // signed out by the server (session ended): say why
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (Provider.of<AuthProvider>(context, listen: false)
+          .takeSessionExpired()) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Your session has ended. Please sign in again.')));
+      }
+    });
+  }
+
   void _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

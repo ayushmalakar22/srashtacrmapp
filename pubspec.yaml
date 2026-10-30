@@ -16,9 +16,11 @@ dependencies:
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   google_fonts: ^6.1.0
-  image_picker: ^1.2.3
+  image_picker: ^1.2.4
   url_launcher: ^6.3.2
   path_provider: ^2.1.6
+  share_plus: ^10.1.4
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   flutter_test:

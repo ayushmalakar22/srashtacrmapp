@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/estimate_status.dart';
+import '../utils/pdf_share.dart';
 import '../utils/phone.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
@@ -67,13 +68,12 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
       _snack('Could not open dialer');
   }
 
-  Future<void> _pdf() async {
-    final token = await ApiService.getToken();
-    final uri = Uri.parse(
-        '${ApiService.baseUrl}/estimate_pdf/${widget.estimateId}?token=$token');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted)
-      _snack('Could not open PDF');
-  }
+  Future<void> _pdf() => shareDocumentPdf(
+        context,
+        endpoint: 'estimate_pdf',
+        id: widget.estimateId,
+        fileName: estimateNumber(_est!['prefix'], _est!['number']),
+      );
 
   Future<void> _delete() async {
     final ok = await showDialog<bool>(

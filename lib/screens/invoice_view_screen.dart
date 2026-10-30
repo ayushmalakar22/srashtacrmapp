@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/invoice_status.dart';
+import '../utils/pdf_share.dart';
 import '../utils/phone.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
@@ -139,28 +140,13 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
 
   Future<void> _downloadPdf() async {
     if (_invoice == null) return;
-
-    try {
-      final token = await ApiService.getToken();
-      final url =
-          '${ApiService.baseUrl}/invoice_pdf/${widget.invoiceId}?token=$token';
-
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Could not launch browser to download PDF')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
+    final num = '${_invoice!['prefix'] ?? ''}${_invoice!['number'] ?? ''}';
+    await shareDocumentPdf(
+      context,
+      endpoint: 'invoice_pdf',
+      id: widget.invoiceId,
+      fileName: num.isEmpty ? 'Invoice' : num,
+    );
   }
 
   bool get _canReceivePayment {
@@ -239,8 +225,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
           Row(
             children: [
               Expanded(
-                  child: _paySummary(
-                      'Paid', '$_sym${p['total_paid']}', Colors.green.shade700)),
+                  child: _paySummary('Paid', '$_sym${p['total_paid']}',
+                      Colors.green.shade700)),
               Expanded(
                   child: _paySummary('Balance Due', '$_sym${p['balance_due']}',
                       Colors.red.shade700)),
@@ -609,7 +595,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       5,
       child: Column(
         children: [
-          _buildTotalRow('Sub Total', '$_sym${_invoice!['subtotal'] ?? '0.00'}'),
+          _buildTotalRow(
+              'Sub Total', '$_sym${_invoice!['subtotal'] ?? '0.00'}'),
           if (discount > 0)
             _buildTotalRow('Discount', '-$_sym${_invoice!['discount_total']}'),
           ..._taxBreakdown(items).entries.map((tax) =>

@@ -23,3 +23,18 @@ class InvoiceStatus {
     }
   }
 }
+
+/// Status as people read it: an unpaid or partly paid invoice whose due date
+/// has passed is overdue even before the server's nightly job marks it so.
+/// Same rule the Dashboard and Pending screens use.
+String effectiveInvoiceStatus(dynamic status, dynamic dueDate, [DateTime? now]) {
+  final s = status?.toString() ?? '';
+  if (s == '1' || s == '3') {
+    final due = DateTime.tryParse((dueDate ?? '').toString());
+    final n = now ?? DateTime.now();
+    if (due != null && due.isBefore(DateTime(n.year, n.month, n.day))) {
+      return '4';
+    }
+  }
+  return s;
+}

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/form_section.dart';
+import '../widgets/item_picker_sheet.dart';
+import '../widgets/paged_picker.dart';
 import '../widgets/popup_title.dart';
 import '../widgets/searchable_select_field.dart';
 
@@ -22,16 +26,15 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   bool _isSaving = false;
 
   // Form Data
-  List<dynamic> _customers = [];
   List<dynamic> _currencies = [];
   List<dynamic> _paymentModes = [];
   List<dynamic> _taxes = [];
   List<dynamic> _staff = [];
-  List<dynamic> _availableItems = [];
   List<dynamic> _countries = [];
 
   // Selections & Controllers
   String? _selectedCustomer;
+  String? _selectedCustomerName;
   String? _selectedCurrency;
   String? _selectedSaleAgent;
   // Not exposed in the UI (no "Discount Type" selector) - 'before_tax' is
@@ -107,12 +110,10 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       final formDataResponse = await ApiService.getInvoiceFormData();
       if (formDataResponse['status'] == true) {
         final data = formDataResponse['data'];
-        _customers = data['customers'] ?? [];
         _currencies = data['currencies'] ?? [];
         _paymentModes = data['payment_modes'] ?? [];
         _taxes = data['taxes'] ?? [];
         _staff = data['staff'] ?? [];
-        _availableItems = data['items'] ?? [];
         _countries = data['countries'] ?? [];
 
         if (_currencies.isNotEmpty) {
@@ -141,6 +142,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
             : await ApiService.getInvoice(widget.invoiceId!);
         if (invoiceResponse['status'] == true) {
           _populateInvoiceData(invoiceResponse['data']);
+          await _loadCustomerName();
         }
       }
     } catch (e) {
@@ -276,20 +278,32 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     );
   }
 
-  List<dynamic> get _flatAvailableItems {
-    List<dynamic> flat = [];
-    for (var group in _availableItems) {
-      if (group is List) {
-        flat.addAll(group);
-      } else if (group is Map) {
-        if (group.containsKey('items') && group['items'] is List) {
-          flat.addAll(group['items']);
-        } else {
-          flat.add(group);
-        }
-      }
-    }
-    return flat;
+  /// Edit mode: the form no longer carries every customer, so look up the
+  /// saved customer's name (even if they are inactive now).
+  Future<void> _loadCustomerName() async {
+    final id = _selectedCustomer;
+    if (id == null) return;
+    final res = await ApiService.getCustomerOptions(id: id);
+    final rows = res['status'] == true ? res['data'] as List : const [];
+    if (rows.isNotEmpty)
+      _selectedCustomerName = rows.first['company']?.toString();
+  }
+
+  Future<void> _pickCustomer() async {
+    final row = await showPagedPicker(
+      context,
+      title: 'Select Customer',
+      searchHint: 'Search customers',
+      emptyText: 'No customers yet',
+      fetch: (offset, limit, search) => ApiService.getCustomerOptions(
+          offset: offset, limit: limit, search: search),
+      tileBuilder: (c, select) => ListTile(
+        title: Text('${c['company']}'),
+        selected: c['userid'].toString() == _selectedCustomer,
+        onTap: select,
+      ),
+    );
+    if (row != null && mounted) _onCustomerChanged(row);
   }
 
   void _removeItem(int index) {
@@ -302,12 +316,42 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     });
   }
 
+  /// Fills the item form from a catalog item (name, rate, unit and taxes).
+  void _fillFromCatalogItem(Map item) {
+    _stagingSelectedItemId = item['id'].toString();
+    _stagingDescCtrl.text = item['description']?.toString() ?? '';
+    _stagingLongDescCtrl.text = item['long_description']?.toString() ?? '';
+    _stagingRateCtrl.text =
+        _getItemRate(Map<String, dynamic>.from(item)).toStringAsFixed(2);
+    _stagingUnitCtrl.text = item['unit']?.toString() ?? '';
+    _stagingTaxes.clear();
+    for (final s in ['', '_2']) {
+      if (item['taxname$s'] != null && item['taxrate$s'] != null) {
+        _stagingTaxes.add('${item['taxname$s']}|${item['taxrate$s']}');
+      }
+    }
+  }
+
+  Future<void> _pickCatalogItem(StateSetter setSheetState) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final item = await showItemPicker(
+      context,
+      taxes: _taxes,
+      symbol: _currencySymbol,
+      rateOf: (i) => _getItemRate(Map<String, dynamic>.from(i)),
+      canCreate: auth.canCreateItem,
+    );
+    if (item == null || !mounted) return;
+    setSheetState(() => _fillFromCatalogItem(item));
+  }
+
   /// Add or edit a single invoice item in a bottom sheet instead of a
   /// permanently-visible form, so the main screen just shows the item list
   /// plus one "Add Item" button.
   void _openAddItemSheet({int? editIndex}) {
     if (editIndex != null) {
       final item = _invoiceItems[editIndex];
+      _stagingSelectedItemId = null;
       _stagingDescCtrl.text = item['description']?.toString() ?? '';
       _stagingLongDescCtrl.text = item['long_description']?.toString() ?? '';
       _stagingQtyCtrl.text = (item['qty'] as double? ?? 1.0).toString();
@@ -349,48 +393,27 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    if (_flatAvailableItems.isNotEmpty) ...[
-                      SearchableSelectField(
-                        label: 'Pick from catalog (optional)',
-                        decoration: _inputDecor('Pick from catalog (optional)'),
-                        value: null,
-                        options: _flatAvailableItems.map<SelectOption>((item) {
-                          final rateVal = item['rate'] != null
-                              ? double.tryParse(item['rate'].toString()) ?? 0.0
-                              : 0.0;
-                          return SelectOption(item['id'].toString(),
-                              '(${rateVal.toStringAsFixed(2)}) ${item['description']}');
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          final item = _flatAvailableItems
-                              .firstWhere((e) => e['id'].toString() == val);
-                          setSheetState(() {
-                            _stagingSelectedItemId = val;
-                            _stagingDescCtrl.text =
-                                item['description']?.toString() ?? '';
-                            _stagingLongDescCtrl.text =
-                                item['long_description']?.toString() ?? '';
-                            _stagingRateCtrl.text =
-                                _getItemRate(item).toStringAsFixed(2);
-                            _stagingUnitCtrl.text =
-                                item['unit']?.toString() ?? '';
-                            _stagingTaxes.clear();
-                            if (item['taxname'] != null &&
-                                item['taxrate'] != null) {
-                              _stagingTaxes
-                                  .add('${item['taxname']}|${item['taxrate']}');
-                            }
-                            if (item['taxname_2'] != null &&
-                                item['taxrate_2'] != null) {
-                              _stagingTaxes.add(
-                                  '${item['taxname_2']}|${item['taxrate_2']}');
-                            }
-                          });
-                        },
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _pickCatalogItem(setSheetState),
+                      child: InputDecorator(
+                        decoration: _inputDecor('Pick from items (optional)')
+                            .copyWith(
+                                prefixIcon:
+                                    const Icon(Icons.inventory_2_outlined),
+                                suffixIcon: const Icon(Icons.arrow_drop_down)),
+                        child: Text(
+                            _stagingSelectedItemId == null
+                                ? 'Search your items'
+                                : _stagingDescCtrl.text,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: _stagingSelectedItemId == null
+                                    ? Colors.grey.shade600
+                                    : null)),
                       ),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
+                    const SizedBox(height: 12),
                     TextFormField(
                         controller: _stagingDescCtrl,
                         decoration: _inputDecor('Description')),
@@ -547,17 +570,13 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     );
   }
 
-  void _onCustomerChanged(String? customerId) {
+  void _onCustomerChanged(Map customer) {
     setState(() {
-      _selectedCustomer = customerId;
+      _selectedCustomer = customer['userid'].toString();
+      _selectedCustomerName = customer['company']?.toString();
     });
 
-    if (customerId == null) return;
-
-    final customer = _customers.firstWhere(
-        (c) => c['userid'].toString() == customerId,
-        orElse: () => null);
-    if (customer != null) {
+    {
       setState(() {
         _billingStreet = customer['billing_street']?.toString();
         _billingCity = customer['billing_city']?.toString();
@@ -872,18 +891,13 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                           ? Icons.request_quote_outlined
                           : Icons.receipt_long_outlined,
                       children: [
-                        SearchableSelectField(
-                          label: 'Customer *',
+                        PickerField(
                           decoration: _inputDecor('Customer *'),
-                          options: _customers
-                              .map<SelectOption>((c) => SelectOption(
-                                  c['userid'].toString(),
-                                  c['company'].toString()))
-                              .toList(),
-                          value: _selectedCustomer,
-                          onChanged: (val) => _onCustomerChanged(val),
-                          validator: (value) =>
-                              value == null ? 'Required' : null,
+                          text: _selectedCustomer == null
+                              ? null
+                              : (_selectedCustomerName ?? 'Customer'),
+                          onTap: _pickCustomer,
+                          validator: (v) => v == null ? 'Required' : null,
                         ),
                         // Address block slides open once a customer is picked.
                         AnimatedSize(

@@ -163,7 +163,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStats(ThemeData theme) {
     final s = _stats!;
-    final sym = (s['currency_symbol'] ?? '\$').toString();
+    // no symbol set for this currency: show its code (e.g. "AED ") instead of
+    // a wrong "$"
+    var sym = (s['currency_symbol'] ?? '').toString().trim();
+    if (sym.isEmpty) {
+      final cur = (s['currencies'] as List? ?? []).firstWhere(
+          (c) => c['id'].toString() == '${s['currency_id']}',
+          orElse: () => null);
+      final name = (cur?['name'] ?? '').toString().trim();
+      sym = name.isEmpty ? '' : '$name ';
+    }
     final cards = <_Stat>[
       _Stat('Active Customers', s['total_active_customers'],
           Icons.people_alt_outlined, theme.colorScheme.primary),
@@ -175,19 +184,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           s['unpaid_invoices_amount'],
           Icons.receipt_long_outlined,
           const Color(0xFFF9AB00),
-          money: true, symbol: sym),
+          money: true,
+          symbol: sym),
       _Stat(
           '${s['paid_invoices_count']} Paid Invoices',
           s['paid_invoices_amount'],
           Icons.check_circle_outline,
           const Color(0xFF34A853),
-          money: true, symbol: sym),
+          money: true,
+          symbol: sym),
       _Stat(
           '${s['overdue_invoices_count']} Overdue Invoices',
           s['overdue_invoices_amount'],
           Icons.warning_amber_rounded,
           theme.colorScheme.error,
-          money: true, symbol: sym),
+          money: true,
+          symbol: sym),
       _Stat('${s['draft_invoices_count']} Draft Invoices',
           s['draft_invoices_amount'], Icons.edit_document, Colors.grey.shade600,
           money: true, symbol: sym),
@@ -281,13 +293,12 @@ class _CountUp extends StatelessWidget {
   final dynamic raw;
   final bool money;
   final String symbol;
-  const _CountUp(
-      {required this.raw, required this.money, this.symbol = '\$'});
+  const _CountUp({required this.raw, required this.money, this.symbol = '\$'});
 
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(
-        fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
+        fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
     final target = double.tryParse(raw.toString());
     if (target == null) {
       return Text(money ? '$symbol$raw' : raw.toString(), style: style);
