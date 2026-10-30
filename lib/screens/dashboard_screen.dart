@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_entry.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/currency_selector.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -13,6 +15,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _stats;
+  String? _currencyId; // null = the base currency
   bool _isLoading = true;
   String? _error;
 
@@ -26,10 +29,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted)
       Provider.of<AuthProvider>(context, listen: false).fetchPermissions();
     try {
-      final data = await ApiService.getDashboardStats();
+      _currencyId ??= await CurrencyPref.load();
+      final data = await ApiService.getDashboardStats(currency: _currencyId);
       if (data['status'] == true) {
         setState(() {
           _stats = data['data'];
+          _currencyId = data['data']['currency_id']?.toString();
           _isLoading = false;
         });
       } else {
@@ -62,15 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () => authProvider.logout(),
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -86,6 +85,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         index: 0,
                         child: _buildHero(theme, authProvider.userName)),
                     const SizedBox(height: 20),
+                    if (_stats != null)
+                      CurrencySelector(
+                        currencies: (_stats!['currencies'] as List?) ?? [],
+                        selectedId: _currencyId ?? '',
+                        onSelected: (id) {
+                          setState(() => _currencyId = id);
+                          CurrencyPref.save(id);
+                          _fetchStats();
+                        },
+                      ),
                     if (_stats != null) _buildStats(theme),
                     if (_stats == null && _error != null)
                       Text(
@@ -154,30 +163,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStats(ThemeData theme) {
     final s = _stats!;
+    final sym = (s['currency_symbol'] ?? '\$').toString();
     final cards = <_Stat>[
       _Stat('Active Customers', s['total_active_customers'],
           Icons.people_alt_outlined, theme.colorScheme.primary),
+      _Stat('Collected this month', s['collected_this_month'],
+          Icons.payments_outlined, const Color(0xFF0F9D58),
+          money: true, symbol: sym),
       _Stat(
           '${s['unpaid_invoices_count']} Unpaid Invoices',
           s['unpaid_invoices_amount'],
           Icons.receipt_long_outlined,
           const Color(0xFFF9AB00),
-          money: true),
+          money: true, symbol: sym),
       _Stat(
           '${s['paid_invoices_count']} Paid Invoices',
           s['paid_invoices_amount'],
           Icons.check_circle_outline,
           const Color(0xFF34A853),
-          money: true),
+          money: true, symbol: sym),
       _Stat(
           '${s['overdue_invoices_count']} Overdue Invoices',
           s['overdue_invoices_amount'],
           Icons.warning_amber_rounded,
           theme.colorScheme.error,
-          money: true),
+          money: true, symbol: sym),
       _Stat('${s['draft_invoices_count']} Draft Invoices',
           s['draft_invoices_amount'], Icons.edit_document, Colors.grey.shade600,
-          money: true),
+          money: true, symbol: sym),
     ];
 
     return LayoutBuilder(
@@ -223,7 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Icon(stat.icon, color: stat.color, size: 22),
           ),
           const SizedBox(height: 14),
-          _CountUp(raw: stat.value, money: stat.money),
+          _CountUp(raw: stat.value, money: stat.money, symbol: stat.symbol),
           const SizedBox(height: 4),
           Text(
             stat.title,
@@ -258,15 +271,18 @@ class _Stat {
   final IconData icon;
   final Color color;
   final bool money;
+  final String symbol;
   const _Stat(this.title, this.value, this.icon, this.color,
-      {this.money = false});
+      {this.money = false, this.symbol = '\$'});
 }
 
 /// Number that counts up from zero when it first appears.
 class _CountUp extends StatelessWidget {
   final dynamic raw;
   final bool money;
-  const _CountUp({required this.raw, required this.money});
+  final String symbol;
+  const _CountUp(
+      {required this.raw, required this.money, this.symbol = '\$'});
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +290,7 @@ class _CountUp extends StatelessWidget {
         fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1F2937));
     final target = double.tryParse(raw.toString());
     if (target == null) {
-      return Text(money ? '\$$raw' : raw.toString(), style: style);
+      return Text(money ? '$symbol$raw' : raw.toString(), style: style);
     }
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -284,7 +300,7 @@ class _CountUp extends StatelessWidget {
         duration: const Duration(milliseconds: 900),
         curve: Curves.easeOutCubic,
         builder: (_, v, __) => Text(
-            money ? '\$${formatAmount(v)}' : v.round().toString(),
+            money ? '$symbol${formatAmount(v)}' : v.round().toString(),
             style: style),
       ),
     );

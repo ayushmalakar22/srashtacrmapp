@@ -22,6 +22,11 @@ class AuthProvider with ChangeNotifier {
   bool get canEditCustomer => _permissions['customers']?['edit'] == true;
   bool get canDeleteCustomer => _permissions['customers']?['delete'] == true;
 
+  bool get canViewItems => _permissions['items']?['view'] == true;
+  bool get canCreateItem => _permissions['items']?['create'] == true;
+  bool get canEditItem => _permissions['items']?['edit'] == true;
+  bool get canDeleteItem => _permissions['items']?['delete'] == true;
+
   bool get canCreateInvoice => _permissions['invoices']?['create'] == true;
   bool get canEditInvoice => _permissions['invoices']?['edit'] == true;
   bool get canDeleteInvoice => _permissions['invoices']?['delete'] == true;

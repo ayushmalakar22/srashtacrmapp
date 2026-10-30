@@ -8,9 +8,11 @@ class RecordPaymentSheet extends StatefulWidget {
   final String invoiceId;
   final String balanceDue;
   final List modes;
+  final String symbol;
 
   const RecordPaymentSheet({
     super.key,
+    this.symbol = '\$',
     required this.invoiceId,
     required this.balanceDue,
     required this.modes,
@@ -116,7 +118,7 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
           children: [
             const PopupTitle('Receive Payment',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            Text('Balance due: \$${widget.balanceDue}',
+            Text('Balance due: ${widget.symbol}${widget.balanceDue}',
                 style: TextStyle(color: Colors.grey.shade700)),
             const SizedBox(height: 14),
             TextField(
@@ -124,8 +126,8 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-              decoration:
-                  const InputDecoration(labelText: 'Amount', prefixText: '\$ '),
+              decoration: InputDecoration(
+                  labelText: 'Amount', prefixText: '${widget.symbol} '),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(

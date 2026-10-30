@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'customers_screen.dart';
 import 'invoices_screen.dart';
-import 'estimates_screen.dart';
-import 'pending_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -19,8 +17,6 @@ class _MainLayoutState extends State<MainLayout> {
     DashboardScreen(),
     CustomersScreen(),
     InvoicesScreen(),
-    EstimatesScreen(),
-    PendingScreen(),
   ];
 
   @override
@@ -54,16 +50,6 @@ class _MainLayoutState extends State<MainLayout> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Invoices',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.request_quote_outlined),
-            selectedIcon: Icon(Icons.request_quote),
-            label: 'Estimates',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Pending',
           ),
         ],
       ),

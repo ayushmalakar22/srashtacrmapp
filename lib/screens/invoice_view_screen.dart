@@ -67,7 +67,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
     final org = (_invoice!['organization']?['name'] ?? '').toString();
     final due = (_invoice!['duedate'] ?? '').toString();
     return 'Hello ${_invoice!['company'] ?? ''},\n'
-        'This is a reminder that a payment of \$${_invoice!['balance_due']} for invoice $num is pending'
+        'This is a reminder that a payment of $_sym${_invoice!['balance_due']} for invoice $num is pending'
         '${due.isNotEmpty ? ' (due $due)' : ''}.\n'
         '${_invoice!['share_url'] ?? ''}\n'
         '${org.isNotEmpty ? 'Thank you, $org' : 'Thank you'}';
@@ -180,6 +180,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       showDragHandle: true,
       builder: (_) => RecordPaymentSheet(
         invoiceId: widget.invoiceId,
+        symbol: _sym,
         balanceDue: _payments!['balance_due'].toString(),
         modes: _payments!['payment_modes'] as List,
       ),
@@ -239,9 +240,9 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
             children: [
               Expanded(
                   child: _paySummary(
-                      'Paid', '\$${p['total_paid']}', Colors.green.shade700)),
+                      'Paid', '$_sym${p['total_paid']}', Colors.green.shade700)),
               Expanded(
-                  child: _paySummary('Balance Due', '\$${p['balance_due']}',
+                  child: _paySummary('Balance Due', '$_sym${p['balance_due']}',
                       Colors.red.shade700)),
             ],
           ),
@@ -261,7 +262,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('\$${r['amount']}',
+                      Text('$_sym${r['amount']}',
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                       Text(
                           [r['date'], r['mode']]
@@ -378,7 +379,7 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
             const Text('Total',
                 style: TextStyle(color: Colors.white70, fontSize: 12.5)),
             Text(
-              '\$${_invoice!['total'] ?? '0.00'}',
+              '$_sym${_invoice!['total'] ?? '0.00'}',
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
@@ -587,13 +588,13 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
               if (long.isNotEmpty)
                 Text(long, style: TextStyle(fontSize: 12, color: muted)),
               const SizedBox(height: 2),
-              Text('${item['qty'] ?? '1'} × \$${item['rate'] ?? '0.00'}',
+              Text('${item['qty'] ?? '1'} × $_sym${item['rate'] ?? '0.00'}',
                   style: TextStyle(fontSize: 12.5, color: muted)),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        Text('\$${(qty * rate).toStringAsFixed(2)}',
+        Text('$_sym${(qty * rate).toStringAsFixed(2)}',
             style: const TextStyle(fontWeight: FontWeight.w700)),
       ],
     );
@@ -608,15 +609,15 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       5,
       child: Column(
         children: [
-          _buildTotalRow('Sub Total', '\$${_invoice!['subtotal'] ?? '0.00'}'),
+          _buildTotalRow('Sub Total', '$_sym${_invoice!['subtotal'] ?? '0.00'}'),
           if (discount > 0)
-            _buildTotalRow('Discount', '-\$${_invoice!['discount_total']}'),
+            _buildTotalRow('Discount', '-$_sym${_invoice!['discount_total']}'),
           ..._taxBreakdown(items).entries.map((tax) =>
-              _buildTotalRow(tax.key, '\$${tax.value.toStringAsFixed(2)}')),
+              _buildTotalRow(tax.key, '$_sym${tax.value.toStringAsFixed(2)}')),
           if (adjustment != 0)
-            _buildTotalRow('Adjustment', '\$${_invoice!['adjustment']}'),
+            _buildTotalRow('Adjustment', '$_sym${_invoice!['adjustment']}'),
           const Divider(height: 20),
-          _buildTotalRow('Total', '\$${_invoice!['total'] ?? '0.00'}',
+          _buildTotalRow('Total', '$_sym${_invoice!['total'] ?? '0.00'}',
               isBold: true, fontSize: 18),
         ],
       ),
@@ -645,6 +646,8 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       ),
     );
   }
+
+  String get _sym => (_invoice?['symbol'] ?? '\$').toString();
 
   @override
   Widget build(BuildContext context) {

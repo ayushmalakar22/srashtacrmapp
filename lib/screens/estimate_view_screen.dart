@@ -46,7 +46,7 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
   String get _shareText {
     final org = (_est!['organization']?['name'] ?? '').toString();
     return 'Hello ${_est!['company'] ?? ''},\n'
-        'Here is our estimate $_number for \$${_est!['total']}'
+        'Here is our estimate $_number for $_sym${_est!['total']}'
         '${(_est!['expirydate'] ?? '').toString().isNotEmpty ? ' (valid till ${_est!['expirydate']})' : ''}.\n'
         '${_est!['share_url'] ?? ''}\n'
         '${org.isNotEmpty ? 'Thank you, $org' : 'Thank you'}';
@@ -285,7 +285,7 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
           const SizedBox(height: 10),
           const Text('Total',
               style: TextStyle(color: Colors.white70, fontSize: 12.5)),
-          Text('\$${_est!['total'] ?? '0.00'}',
+          Text('$_sym${_est!['total'] ?? '0.00'}',
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
@@ -383,13 +383,13 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
                       Text(items[i]['long_description'].toString(),
                           style: TextStyle(fontSize: 12, color: muted)),
                     Text(
-                        '${items[i]['qty'] ?? '1'} × \$${items[i]['rate'] ?? '0.00'}',
+                        '${items[i]['qty'] ?? '1'} × $_sym${items[i]['rate'] ?? '0.00'}',
                         style: TextStyle(fontSize: 12.5, color: muted)),
                   ]),
             ),
             const SizedBox(width: 12),
             Text(
-              '\$${((double.tryParse('${items[i]['qty']}') ?? 1) * (double.tryParse('${items[i]['rate']}') ?? 0)).toStringAsFixed(2)}',
+              '$_sym${((double.tryParse('${items[i]['qty']}') ?? 1) * (double.tryParse('${items[i]['rate']}') ?? 0)).toStringAsFixed(2)}',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ]),
@@ -438,13 +438,13 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
     return _card(
       4,
       child: Column(children: [
-        _row('Sub Total', '\$${_est!['subtotal'] ?? '0.00'}'),
-        if (discount > 0) _row('Discount', '-\$${_est!['discount_total']}'),
+        _row('Sub Total', '$_sym${_est!['subtotal'] ?? '0.00'}'),
+        if (discount > 0) _row('Discount', '-$_sym${_est!['discount_total']}'),
         for (final t in _taxes(items).entries)
-          _row(t.key, '\$${t.value.toStringAsFixed(2)}'),
-        if (adjustment != 0) _row('Adjustment', '\$${_est!['adjustment']}'),
+          _row(t.key, '$_sym${t.value.toStringAsFixed(2)}'),
+        if (adjustment != 0) _row('Adjustment', '$_sym${_est!['adjustment']}'),
         const Divider(height: 20),
-        _row('Total', '\$${_est!['total'] ?? '0.00'}', bold: true),
+        _row('Total', '$_sym${_est!['total'] ?? '0.00'}', bold: true),
       ]),
     );
   }
@@ -544,6 +544,8 @@ class _EstimateViewScreenState extends State<EstimateViewScreen> {
       ]),
     );
   }
+
+  String get _sym => (_est?['symbol'] ?? '\$').toString();
 
   @override
   Widget build(BuildContext context) {

@@ -162,11 +162,12 @@ class ApiService {
   }
 
   // --- DASHBOARD ---
-  static Future<Map<String, dynamic>> getDashboardStats() async {
+  static Future<Map<String, dynamic>> getDashboardStats(
+      {String? currency}) async {
     final headers = await _getHeaders();
-    final response = await http
-        .get(Uri.parse('$baseUrl/dashboard'), headers: headers)
-        .timeout(const Duration(seconds: 10));
+    final q = currency == null ? '' : '?currency=$currency';
+    final response =
+        await _get(Uri.parse('$baseUrl/dashboard$q'), headers: headers);
     return jsonDecode(response.body);
   }
 
@@ -448,6 +449,32 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  // --- ITEMS ---
+  static Future<Map<String, dynamic>> getItems() async {
+    final headers = await _getHeaders();
+    final response = await _get(Uri.parse('$baseUrl/items'), headers: headers);
+    return jsonDecode(response.body);
+  }
+
+  /// Creates the item, or updates it when [data] has an `id`.
+  static Future<Map<String, dynamic>> saveItem(
+      Map<String, dynamic> data) async {
+    final headers = await _getHeaders();
+    final response = await _post(
+      Uri.parse('$baseUrl/items'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> deleteItem(String id) async {
+    final headers = await _getHeaders();
+    final response =
+        await _post(Uri.parse('$baseUrl/delete_item/$id'), headers: headers);
+    return jsonDecode(response.body);
+  }
+
   static Future<Map<String, dynamic>> deletePayment(String paymentId) async {
     final headers = await _getHeaders();
     final response = await _post(
@@ -469,10 +496,11 @@ class ApiService {
   }
 
   // --- PENDING LEDGER ---
-  static Future<Map<String, dynamic>> getPending() async {
+  static Future<Map<String, dynamic>> getPending({String? currency}) async {
     final headers = await _getHeaders();
+    final q = currency == null ? '' : '?currency=$currency';
     final response =
-        await _get(Uri.parse('$baseUrl/pending'), headers: headers);
+        await _get(Uri.parse('$baseUrl/pending$q'), headers: headers);
     return jsonDecode(response.body);
   }
 

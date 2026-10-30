@@ -7,6 +7,7 @@ import 'add_customer_screen.dart';
 import 'contacts_list_screen.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/app_drawer.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -62,6 +63,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Customers'),
       ),

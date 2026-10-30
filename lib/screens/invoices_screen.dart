@@ -7,6 +7,7 @@ import 'add_invoice_screen.dart';
 import 'invoice_view_screen.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/app_drawer.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -131,6 +132,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Invoices'),
       ),
@@ -239,7 +241,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.end,
                                           children: [
-                                            Text('\$${invoice['total']}',
+                                            Text('${invoice['symbol'] ?? '\$'}${invoice['total']}',
                                                 style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 16)),

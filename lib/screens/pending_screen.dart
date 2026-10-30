@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/phone.dart';
 import '../widgets/animated_entry.dart';
+import '../widgets/currency_selector.dart';
 import '../widgets/empty_state.dart';
 import 'invoice_view_screen.dart';
 
@@ -18,6 +19,9 @@ class PendingScreen extends StatefulWidget {
 class _PendingScreenState extends State<PendingScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _data;
+  String? _currencyId; // null = the base currency
+
+  String get _sym => (_data?['currency_symbol'] ?? '\$').toString();
 
   @override
   void initState() {
@@ -27,10 +31,14 @@ class _PendingScreenState extends State<PendingScreen> {
 
   Future<void> _fetch() async {
     try {
-      final res = await ApiService.getPending();
+      _currencyId ??= await CurrencyPref.load();
+      final res = await ApiService.getPending(currency: _currencyId);
       if (!mounted) return;
       if (res['status'] == true) {
-        setState(() => _data = res['data']);
+        setState(() {
+          _data = res['data'];
+          _currencyId = res['data']['currency_id']?.toString();
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(res['message']?.toString() ?? 'Failed to load')));
@@ -50,9 +58,9 @@ class _PendingScreenState extends State<PendingScreen> {
     final overdue = double.tryParse(c['overdue'].toString()) ?? 0;
     final n = c['invoice_count'];
     return 'Hello ${c['company']},\n'
-        'This is a reminder that a payment of \$${c['balance']} is pending '
+        'This is a reminder that a payment of $_sym${c['balance']} is pending '
         '(${n == 1 ? 'invoice' : '$n invoices'}: $invoices)'
-        '${overdue > 0 ? ', of which \$${c['overdue']} is overdue' : ''}.\n'
+        '${overdue > 0 ? ', of which $_sym${c['overdue']} is overdue' : ''}.\n'
         '${org.isNotEmpty ? 'Thank you, $org' : 'Thank you'}';
   }
 
@@ -108,8 +116,8 @@ class _PendingScreenState extends State<PendingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              tile('To collect', '\$${_data!['total_pending']}', Colors.white),
-              tile('Overdue', '\$${_data!['total_overdue']}',
+              tile('To collect', '$_sym${_data!['total_pending']}', Colors.white),
+              tile('Overdue', '$_sym${_data!['total_overdue']}',
                   const Color(0xFFFFCDD2)),
             ]),
             const SizedBox(height: 8),
@@ -143,14 +151,14 @@ class _PendingScreenState extends State<PendingScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 overdue
-                    ? '\$${c['overdue']} overdue · ${c['invoice_count']} inv'
+                    ? '$_sym${c['overdue']} overdue · ${c['invoice_count']} inv'
                     : 'Due ${c['oldest_due']} · ${c['invoice_count']} inv',
                 style: TextStyle(
                     color: overdue ? Colors.red.shade700 : muted,
                     fontSize: 12.5),
               ),
             ),
-            trailing: Text('\$${c['balance']}',
+            trailing: Text('$_sym${c['balance']}',
                 style:
                     const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
             children: [
@@ -164,7 +172,7 @@ class _PendingScreenState extends State<PendingScreen> {
                           color: i['overdue'] == true
                               ? Colors.red.shade700
                               : muted)),
-                  trailing: Text('\$${i['balance']}',
+                  trailing: Text('$_sym${i['balance']}',
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   onTap: () => Navigator.push(
                     context,
@@ -227,6 +235,16 @@ class _PendingScreenState extends State<PendingScreen> {
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
                           children: [
+                            CurrencySelector(
+                              currencies:
+                                  (_data?['currencies'] as List?) ?? [],
+                              selectedId: _currencyId ?? '',
+                              onSelected: (id) {
+                                setState(() => _currencyId = id);
+                          CurrencyPref.save(id);
+                                _fetch();
+                              },
+                            ),
                             _summary(),
                             for (var i = 0; i < customers.length; i++)
                               _customerCard(i, customers[i]),

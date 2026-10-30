@@ -169,7 +169,7 @@ class _EstimatesScreenState extends State<EstimatesScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('\$${e['total']}',
+                    Text('${e['symbol'] ?? '\$'}${e['total']}',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16)),
                     Text('Exp ${e['expirydate'] ?? '-'}',
