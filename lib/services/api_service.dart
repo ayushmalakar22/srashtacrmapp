@@ -307,6 +307,34 @@ class ApiService {
     return json;
   }
 
+  /// Second step of a two factor login: the challenge from [login] + the code
+  /// (emailed, or from the authenticator app). Same answer as a plain login.
+  static Future<Map<String, dynamic>> loginTwoFactor(
+      String challenge, String code) async {
+    final response = await _post(
+      Uri.parse('$baseUrl/login_2fa'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'challenge': challenge, 'code': code}),
+    );
+    final json = jsonDecode(response.body);
+    final data = json is Map ? json['data'] : null;
+    if (json is Map && json['status'] == true && data is Map) {
+      await TokenStore.save(
+          access: data['token'], refresh: data['refresh_token']);
+    }
+    return json;
+  }
+
+  /// Email a fresh code (email two factor only).
+  static Future<Map<String, dynamic>> resendTwoFactor(String challenge) async {
+    final response = await _post(
+      Uri.parse('$baseUrl/login_2fa_resend'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'challenge': challenge}),
+    );
+    return jsonDecode(response.body);
+  }
+
   /// Full address of a file the server hosts (e.g. a profile photo), built on
   /// the current server address so it follows the server when its IP changes.
   static String fileUrl(String path) {

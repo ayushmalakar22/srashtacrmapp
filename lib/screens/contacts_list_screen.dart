@@ -119,6 +119,9 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
                     itemBuilder: (context, index) {
                       final contact = _contacts[index];
                       final isActive = contact['active'] == '1';
+                      final auth = context.read<AuthProvider>();
+                      final canEdit = auth.canEditCustomer;
+                      final canDelete = auth.canDeleteCustomer;
 
                       return AnimatedEntry(
                         index: index,
@@ -229,45 +232,53 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    PopupMenuButton<String>(
-                                      onSelected: (val) async {
-                                        if (val == 'edit') {
-                                          final result = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => AddContactScreen(
-                                                  customerId: widget.customerId,
-                                                  contact: contact),
-                                            ),
-                                          );
-                                          if (result == true) _fetchContacts();
-                                        } else if (val == 'delete') {
-                                          _deleteContact(
-                                              contact['id'].toString());
-                                        }
-                                      },
-                                      itemBuilder: (BuildContext context) {
-                                        final auth = Provider.of<AuthProvider>(
-                                            context,
-                                            listen: false);
-                                        return [
-                                          const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Text('Edit')),
-                                          if (auth
-                                              .canDeleteCustomer) // Contacts deletion is considered part of deleting the customer in UI
-                                            const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text('Delete',
-                                                    style: TextStyle(
-                                                        color: Colors.red))),
-                                        ];
-                                      },
-                                    ),
+                                    if (canEdit || canDelete)
+                                      PopupMenuButton<String>(
+                                        onSelected: (val) async {
+                                          if (val == 'edit') {
+                                            final result = await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    AddContactScreen(
+                                                        customerId:
+                                                            widget.customerId,
+                                                        contact: contact),
+                                              ),
+                                            );
+                                            if (result == true) {
+                                              _fetchContacts();
+                                            }
+                                          } else if (val == 'delete') {
+                                            _deleteContact(
+                                                contact['id'].toString());
+                                          }
+                                        },
+                                        itemBuilder: (BuildContext context) {
+                                          final auth =
+                                              Provider.of<AuthProvider>(context,
+                                                  listen: false);
+                                          return [
+                                            if (auth.canEditCustomer)
+                                              const PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Edit')),
+                                            if (auth
+                                                .canDeleteCustomer) // Contacts deletion is considered part of deleting the customer in UI
+                                              const PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Delete',
+                                                      style: TextStyle(
+                                                          color: Colors.red))),
+                                          ];
+                                        },
+                                      ),
                                     Switch(
                                       value: isActive,
-                                      onChanged: (val) => _toggleStatus(
-                                          contact['id'].toString(), val),
+                                      onChanged: !canEdit
+                                          ? null
+                                          : (val) => _toggleStatus(
+                                              contact['id'].toString(), val),
                                     ),
                                   ],
                                 ),
@@ -279,20 +290,23 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
                     },
                   ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddContactScreen(customerId: widget.customerId),
+      floatingActionButton: !context.watch<AuthProvider>().canCreateCustomer
+          ? null
+          : FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AddContactScreen(customerId: widget.customerId),
+                  ),
+                );
+                if (result == true) {
+                  _fetchContacts();
+                }
+              },
+              child: const Icon(Icons.add),
             ),
-          );
-          if (result == true) {
-            _fetchContacts();
-          }
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }

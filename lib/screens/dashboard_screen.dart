@@ -173,36 +173,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final name = (cur?['name'] ?? '').toString().trim();
       sym = name.isEmpty ? '' : '$name ';
     }
+    // the server sends only the cards this role may see
     final cards = <_Stat>[
-      _Stat('Active Customers', s['total_active_customers'],
-          Icons.people_alt_outlined, theme.colorScheme.primary),
-      _Stat('Collected this month', s['collected_this_month'],
-          Icons.payments_outlined, const Color(0xFF0F9D58),
-          money: true, symbol: sym),
-      _Stat(
-          '${s['unpaid_invoices_count']} Unpaid Invoices',
-          s['unpaid_invoices_amount'],
-          Icons.receipt_long_outlined,
-          const Color(0xFFF9AB00),
-          money: true,
-          symbol: sym),
-      _Stat(
-          '${s['paid_invoices_count']} Paid Invoices',
-          s['paid_invoices_amount'],
-          Icons.check_circle_outline,
-          const Color(0xFF34A853),
-          money: true,
-          symbol: sym),
-      _Stat(
-          '${s['overdue_invoices_count']} Overdue Invoices',
-          s['overdue_invoices_amount'],
-          Icons.warning_amber_rounded,
-          theme.colorScheme.error,
-          money: true,
-          symbol: sym),
-      _Stat('${s['draft_invoices_count']} Draft Invoices',
-          s['draft_invoices_amount'], Icons.edit_document, Colors.grey.shade600,
-          money: true, symbol: sym),
+      if (s.containsKey('total_active_customers'))
+        _Stat('Active Customers', s['total_active_customers'],
+            Icons.people_alt_outlined, theme.colorScheme.primary),
+      if (s.containsKey('collected_this_month'))
+        _Stat('Collected this month', s['collected_this_month'],
+            Icons.payments_outlined, const Color(0xFF0F9D58),
+            money: true, symbol: sym),
+      if (s.containsKey('unpaid_invoices_count')) ...[
+        _Stat(
+            '${s['unpaid_invoices_count']} Unpaid Invoices',
+            s['unpaid_invoices_amount'],
+            Icons.receipt_long_outlined,
+            const Color(0xFFF9AB00),
+            money: true,
+            symbol: sym),
+        _Stat(
+            '${s['paid_invoices_count']} Paid Invoices',
+            s['paid_invoices_amount'],
+            Icons.check_circle_outline,
+            const Color(0xFF34A853),
+            money: true,
+            symbol: sym),
+        _Stat(
+            '${s['overdue_invoices_count']} Overdue Invoices',
+            s['overdue_invoices_amount'],
+            Icons.warning_amber_rounded,
+            theme.colorScheme.error,
+            money: true,
+            symbol: sym),
+        _Stat(
+            '${s['draft_invoices_count']} Draft Invoices',
+            s['draft_invoices_amount'],
+            Icons.edit_document,
+            Colors.grey.shade600,
+            money: true,
+            symbol: sym),
+      ],
     ];
 
     return LayoutBuilder(

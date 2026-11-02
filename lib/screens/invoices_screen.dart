@@ -12,6 +12,7 @@ import '../widgets/app_drawer.dart';
 import '../utils/paged_list.dart';
 import '../widgets/list_filters.dart';
 import '../widgets/paged_footer.dart';
+import '../widgets/record_payment_sheet.dart';
 import '../widgets/sort_button.dart';
 
 class InvoicesScreen extends StatefulWidget {
@@ -110,6 +111,70 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       Provider.of<AuthProvider>(context, listen: false).fetchPermissions();
     }
     await _list.refresh(silent: true);
+  }
+
+  Widget _swipeBg(Color color, IconData icon, String label, Alignment at) {
+    return Container(
+      alignment: at,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (at == Alignment.centerLeft) Icon(icon, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          if (at == Alignment.centerRight) Icon(icon, color: Colors.white),
+        ],
+      ),
+    );
+  }
+
+  /// Swipe action: open the payment sheet (pre-filled with the balance, so
+  /// saving as-is marks the invoice paid).
+  Future<void> _receivePayment(String id, String symbol) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final res = await ApiService.getInvoicePayments(id);
+      if (res['status'] != true) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('Could not load payment details')));
+        return;
+      }
+      final data = res['data'];
+      final balance =
+          double.tryParse(data['balance_due']?.toString() ?? '0') ?? 0;
+      if (data['can_create'] != true || balance <= 0) {
+        messenger.showSnackBar(const SnackBar(
+            content: Text('Nothing to receive on this invoice')));
+        return;
+      }
+      if (!mounted) return;
+      final saved = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => RecordPaymentSheet(
+          invoiceId: id,
+          symbol: symbol,
+          balanceDue: data['balance_due'].toString(),
+          modes: data['payment_modes'] as List,
+        ),
+      );
+      if (saved == true) {
+        messenger
+            .showSnackBar(const SnackBar(content: Text('Payment recorded')));
+        _fetchInvoices();
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Future<void> _deleteInvoice(String id) async {
@@ -251,142 +316,198 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                   ).then((_) => _fetchInvoices());
                                 }
 
+                                final auth = Provider.of<AuthProvider>(context,
+                                    listen: false);
+                                final canReceive = auth.canCreatePayment &&
+                                    const ['1', '3', '4']
+                                        .contains(invoice['status'].toString());
+                                final canDelete = auth.canDeleteInvoice &&
+                                    invoice['can_delete'] != false;
+
                                 return AnimatedEntry(
                                   index: index,
-                                  child: Card(
-                                    margin: const EdgeInsets.symmetric(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 6),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: InkWell(
-                                      onTap: openView,
-                                      child: Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                            12, 12, 4, 12),
-                                        child: Row(
-                                          children: [
-                                            CircleAvatar(
-                                              radius: 22,
-                                              backgroundColor: statusColor
-                                                  .withValues(alpha: 0.12),
-                                              child: Icon(Icons.receipt_long,
-                                                  color: statusColor),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    '${invoice['prefix']}${invoice['number']}',
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 16),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                      color: statusColor
-                                                          .withValues(
-                                                              alpha: 0.12),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                    ),
-                                                    child: Text(
-                                                      statusText,
-                                                      style: TextStyle(
-                                                          color: statusColor,
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w600),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
+                                    // Swipe right = receive payment, left =
+                                    // delete. The row never leaves the list
+                                    // here: the list reloads after the action.
+                                    child: Dismissible(
+                                      key: ValueKey('inv-${invoice['id']}'),
+                                      direction: canReceive && canDelete
+                                          ? DismissDirection.horizontal
+                                          : canReceive
+                                              ? DismissDirection.startToEnd
+                                              : canDelete
+                                                  ? DismissDirection.endToStart
+                                                  : DismissDirection.none,
+                                      background: _swipeBg(
+                                          Colors.green,
+                                          Icons.payments_outlined,
+                                          'Receive payment',
+                                          Alignment.centerLeft),
+                                      secondaryBackground: _swipeBg(
+                                          Colors.red,
+                                          Icons.delete_outline,
+                                          'Delete',
+                                          Alignment.centerRight),
+                                      confirmDismiss: (dir) async {
+                                        if (dir ==
+                                            DismissDirection.startToEnd) {
+                                          _receivePayment(
+                                              invoice['id'].toString(),
+                                              (invoice['symbol'] ?? '\$')
+                                                  .toString());
+                                        } else {
+                                          _deleteInvoice(
+                                              invoice['id'].toString());
+                                        }
+                                        return false;
+                                      },
+                                      child: Card(
+                                        margin: EdgeInsets.zero,
+                                        clipBehavior: Clip.antiAlias,
+                                        child: InkWell(
+                                          onTap: openView,
+                                          child: Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                                12, 12, 4, 12),
+                                            child: Row(
                                               children: [
-                                                Text(
-                                                    '${invoice['symbol'] ?? '\$'}${invoice['total']}',
-                                                    style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 16)),
-                                                Text('Total',
-                                                    style: TextStyle(
-                                                        color: Colors
-                                                            .grey.shade600,
-                                                        fontSize: 12)),
-                                              ],
-                                            ),
-                                            PopupMenuButton<String>(
-                                              onSelected: (value) {
-                                                if (value == 'view') {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          InvoiceViewScreen(
-                                                              invoiceId: invoice[
-                                                                      'id']
-                                                                  .toString()),
-                                                    ),
-                                                  ).then(
-                                                      (_) => _fetchInvoices());
-                                                } else if (value == 'edit') {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          AddInvoiceScreen(
-                                                              invoiceId: invoice[
-                                                                      'id']
-                                                                  .toString()),
-                                                    ),
-                                                  ).then(
-                                                      (_) => _fetchInvoices());
-                                                } else if (value == 'delete') {
-                                                  _deleteInvoice(
-                                                      invoice['id'].toString());
-                                                }
-                                              },
-                                              itemBuilder: (context) {
-                                                final auth =
-                                                    Provider.of<AuthProvider>(
-                                                        context,
-                                                        listen: false);
-                                                return [
-                                                  const PopupMenuItem(
-                                                    value: 'view',
-                                                    child: Text('View'),
-                                                  ),
-                                                  if (auth.canEditInvoice)
-                                                    const PopupMenuItem(
-                                                      value: 'edit',
-                                                      child: Text('Edit'),
-                                                    ),
-                                                  if (auth.canDeleteInvoice &&
-                                                      invoice['can_delete'] !=
-                                                          false)
-                                                    const PopupMenuItem(
-                                                      value: 'delete',
-                                                      child: Text('Delete',
+                                                CircleAvatar(
+                                                  radius: 22,
+                                                  backgroundColor: statusColor
+                                                      .withValues(alpha: 0.12),
+                                                  child: Icon(
+                                                      Icons.receipt_long,
+                                                      color: statusColor),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        '${invoice['prefix']}${invoice['number']}',
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 16),
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 3),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: statusColor
+                                                              .withValues(
+                                                                  alpha: 0.12),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(20),
+                                                        ),
+                                                        child: Text(
+                                                          statusText,
                                                           style: TextStyle(
                                                               color:
-                                                                  Colors.red)),
-                                                    ),
-                                                ];
-                                              },
+                                                                  statusColor,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                        '${invoice['symbol'] ?? '\$'}${invoice['total']}',
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 16)),
+                                                    Text('Total',
+                                                        style: TextStyle(
+                                                            color: Colors
+                                                                .grey.shade600,
+                                                            fontSize: 12)),
+                                                  ],
+                                                ),
+                                                PopupMenuButton<String>(
+                                                  onSelected: (value) {
+                                                    if (value == 'view') {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              InvoiceViewScreen(
+                                                                  invoiceId: invoice[
+                                                                          'id']
+                                                                      .toString()),
+                                                        ),
+                                                      ).then((_) =>
+                                                          _fetchInvoices());
+                                                    } else if (value ==
+                                                        'edit') {
+                                                      Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              AddInvoiceScreen(
+                                                                  invoiceId: invoice[
+                                                                          'id']
+                                                                      .toString()),
+                                                        ),
+                                                      ).then((_) =>
+                                                          _fetchInvoices());
+                                                    } else if (value ==
+                                                        'delete') {
+                                                      _deleteInvoice(
+                                                          invoice['id']
+                                                              .toString());
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) {
+                                                    final auth = Provider.of<
+                                                            AuthProvider>(
+                                                        context,
+                                                        listen: false);
+                                                    return [
+                                                      const PopupMenuItem(
+                                                        value: 'view',
+                                                        child: Text('View'),
+                                                      ),
+                                                      if (auth.canEditInvoice)
+                                                        const PopupMenuItem(
+                                                          value: 'edit',
+                                                          child: Text('Edit'),
+                                                        ),
+                                                      if (auth.canDeleteInvoice &&
+                                                          invoice['can_delete'] !=
+                                                              false)
+                                                        const PopupMenuItem(
+                                                          value: 'delete',
+                                                          child: Text('Delete',
+                                                              style: TextStyle(
+                                                                  color: Colors
+                                                                      .red)),
+                                                        ),
+                                                    ];
+                                                  },
+                                                ),
+                                              ],
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),

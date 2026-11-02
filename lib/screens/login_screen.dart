@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/server_address_dialog.dart';
+import 'two_factor_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,6 +48,27 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text.trim(),
     );
     if (mounted) setState(() => _isLoading = false);
+
+    if (result['twoFactor'] == true) {
+      if (!mounted) return;
+      final msg = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TwoFactorScreen(
+            challenge: result['challenge'],
+            type: result['type'],
+            maskedEmail: result['email'],
+          ),
+        ),
+      );
+      // code step gave up (expired / locked): say why, password stays out
+      if (msg != null && mounted) {
+        _passwordController.clear();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+      }
+      return;
+    }
 
     if (result['success'] == false) {
       if (mounted) {

@@ -75,21 +75,25 @@ class AppDrawer extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
               children: [
-                const _SectionLabel('SALES'),
-                _DrawerTile(
-                  icon: Icons.request_quote_outlined,
-                  color: const Color(0xFF7C3AED),
-                  title: 'Estimates',
-                  subtitle: 'Quotes sent to customers',
-                  onTap: () => _open(context, const EstimatesScreen()),
-                ),
-                _DrawerTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: const Color(0xFFF59E0B),
-                  title: 'Pending',
-                  subtitle: 'Payments still to collect',
-                  onTap: () => _open(context, const PendingScreen()),
-                ),
+                if (auth.canViewEstimates || auth.canViewInvoices) ...[
+                  const _SectionLabel('SALES'),
+                  if (auth.canViewEstimates)
+                    _DrawerTile(
+                      icon: Icons.request_quote_outlined,
+                      color: const Color(0xFF7C3AED),
+                      title: 'Estimates',
+                      subtitle: 'Quotes sent to customers',
+                      onTap: () => _open(context, const EstimatesScreen()),
+                    ),
+                  if (auth.canViewInvoices)
+                    _DrawerTile(
+                      icon: Icons.account_balance_wallet_outlined,
+                      color: const Color(0xFFF59E0B),
+                      title: 'Pending',
+                      subtitle: 'Payments still to collect',
+                      onTap: () => _open(context, const PendingScreen()),
+                    ),
+                ],
                 if (auth.canViewItems) ...[
                   const SizedBox(height: 6),
                   const _SectionLabel('CATALOG'),

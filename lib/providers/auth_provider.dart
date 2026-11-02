@@ -50,6 +50,20 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get canEditItem => _permissions['items']?['edit'] == true;
   bool get canDeleteItem => _permissions['items']?['delete'] == true;
 
+  // "own" = only records the staff member added (admin panel: view_own);
+  // the server then scopes every list to them, so the screen still works.
+  bool _canSee(String feature) =>
+      _permissions[feature]?['view'] == true ||
+      _permissions[feature]?['view_own'] == true;
+
+  bool get canViewInvoices => _canSee('invoices');
+  bool get canViewEstimates => _canSee('estimates');
+  bool get canCreateEstimate => _permissions['estimates']?['create'] == true;
+  bool get canEditEstimate => _permissions['estimates']?['edit'] == true;
+  bool get canDeleteEstimate => _permissions['estimates']?['delete'] == true;
+
+  bool get canCreatePayment => _permissions['payments']?['create'] == true;
+
   bool get canCreateInvoice => _permissions['invoices']?['create'] == true;
   bool get canEditInvoice => _permissions['invoices']?['edit'] == true;
   bool get canDeleteInvoice => _permissions['invoices']?['delete'] == true;
@@ -100,31 +114,71 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
       final response = await ApiService.login(email, password);
 
       if (response['status'] == true) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', response['data']['user']['name']);
-
-        if (response['data']['user']['permissions'] != null) {
-          await prefs.setString('user_permissions',
-              jsonEncode(response['data']['user']['permissions']));
-          _permissions = response['data']['user']['permissions'];
-        }
-
-        _isAuthenticated = true;
-        _userName = response['data']['user']['name'];
-        await setAvatar(
-            response['data']['user']['avatar_path']?.toString() ?? '');
-        notifyListeners();
+        await _completeLogin(response);
         return {'success': true};
+      } else if (response['two_factor'] == true) {
+        // password accepted, the server wants a code before it opens a session
+        return {
+          'success': false,
+          'twoFactor': true,
+          'type': response['two_factor_type']?.toString() ?? 'app',
+          'challenge': response['challenge']?.toString() ?? '',
+          'email': response['masked_email']?.toString() ?? '',
+        };
       } else {
         return {'success': false, 'message': response['message']};
       }
     } catch (e) {
-      return {
-        'success': false,
-        'message':
-            'Cannot reach the server. Tap "Server" below to check the address.'
-      };
+      return {'success': false, 'message': _unreachable};
     }
+  }
+
+  static const _unreachable =
+      'Cannot reach the server. Tap "Server" below to check the address.';
+
+  /// Second step of a two factor login.
+  Future<Map<String, dynamic>> verifyTwoFactor(
+      String challenge, String code) async {
+    try {
+      final response = await ApiService.loginTwoFactor(challenge, code);
+      if (response['status'] == true) {
+        await _completeLogin(response);
+        return {'success': true};
+      }
+      return {'success': false, 'message': response['message']};
+    } catch (e) {
+      return {'success': false, 'message': _unreachable};
+    }
+  }
+
+  /// Email a new code; returns the server's message.
+  Future<Map<String, dynamic>> resendTwoFactor(String challenge) async {
+    try {
+      final response = await ApiService.resendTwoFactor(challenge);
+      return {
+        'success': response['status'] == true,
+        'message': response['message'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': _unreachable};
+    }
+  }
+
+  /// A session was opened (password only, or password + code).
+  Future<void> _completeLogin(Map<String, dynamic> response) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', response['data']['user']['name']);
+
+    if (response['data']['user']['permissions'] != null) {
+      await prefs.setString('user_permissions',
+          jsonEncode(response['data']['user']['permissions']));
+      _permissions = response['data']['user']['permissions'];
+    }
+
+    _isAuthenticated = true;
+    _userName = response['data']['user']['name'];
+    await setAvatar(response['data']['user']['avatar_path']?.toString() ?? '');
+    notifyListeners();
   }
 
   /// Photo changed (or loaded) on the profile screen.

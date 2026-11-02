@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/invoice_status.dart';
@@ -661,18 +663,20 @@ class _InvoiceViewScreenState extends State<InvoiceViewScreen> {
       appBar: AppBar(
         title: Text(invNumber),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit Invoice',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddInvoiceScreen(invoiceId: widget.invoiceId),
-                ),
-              ).then((_) => _fetchInvoice());
-            },
-          ),
+          if (context.watch<AuthProvider>().canEditInvoice)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit Invoice',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AddInvoiceScreen(invoiceId: widget.invoiceId),
+                  ),
+                ).then((_) => _fetchInvoice());
+              },
+            ),
         ],
       ),
       body: RefreshIndicator(
